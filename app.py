@@ -433,41 +433,61 @@ def get_leads(
     return {"leads": leads, "count": len(leads), "is_guest": user is None}
 
 @app.get("/api/leads/{lead_id}")
-def get_lead(lead_id: int, current_user: Dict[str, Any] = Depends(get_current_user)):
-    user_id = None if current_user["role"] == "admin" else current_user["id"]
+def get_lead(lead_id: int, user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
+    user_id = None
+    if user:
+        user_id = None if user["role"] == "admin" else user["id"]
+    else:
+        user_id = 0
     lead = db.get_lead_by_id(lead_id, user_id=user_id)
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     return lead
 
 @app.patch("/api/leads/{lead_id}")
-def update_lead(lead_id: int, payload: LeadUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
+def update_lead(lead_id: int, payload: LeadUpdate, user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not updates:
         return {"success": True, "message": "No updates provided"}
-    user_id = None if current_user["role"] == "admin" else current_user["id"]
+    user_id = None
+    if user:
+        user_id = None if user["role"] == "admin" else user["id"]
+    else:
+        user_id = 0
     success = db.update_lead(lead_id, updates, user_id=user_id)
     if not success:
         raise HTTPException(status_code=404, detail="Lead not found or update failed")
     return {"success": True, "lead": db.get_lead_by_id(lead_id, user_id=user_id)}
 
 @app.delete("/api/leads/{lead_id}")
-def delete_lead(lead_id: int, current_user: Dict[str, Any] = Depends(get_current_user)):
-    user_id = None if current_user["role"] == "admin" else current_user["id"]
+def delete_lead(lead_id: int, user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
+    user_id = None
+    if user:
+        user_id = None if user["role"] == "admin" else user["id"]
+    else:
+        user_id = 0
     success = db.delete_lead(lead_id, user_id=user_id)
     if not success:
         raise HTTPException(status_code=404, detail="Lead not found")
     return {"success": True, "message": "Lead deleted"}
 
 @app.post("/api/leads/bulk-delete")
-def bulk_delete_leads(payload: BulkDeleteRequest, current_user: Dict[str, Any] = Depends(get_current_user)):
-    user_id = None if current_user["role"] == "admin" else current_user["id"]
+def bulk_delete_leads(payload: BulkDeleteRequest, user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
+    user_id = None
+    if user:
+        user_id = None if user["role"] == "admin" else user["id"]
+    else:
+        user_id = 0
     deleted_count = db.bulk_delete(payload.ids, user_id=user_id)
     return {"success": True, "deleted_count": deleted_count}
 
 @app.post("/api/leads/bulk-status")
-def bulk_update_status(payload: BulkStatusRequest, current_user: Dict[str, Any] = Depends(get_current_user)):
-    user_id = None if current_user["role"] == "admin" else current_user["id"]
+def bulk_update_status(payload: BulkStatusRequest, user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
+    user_id = None
+    if user:
+        user_id = None if user["role"] == "admin" else user["id"]
+    else:
+        user_id = 0
     count = 0
     for lead_id in payload.ids:
         if db.update_lead(lead_id, {"call_status": payload.call_status}, user_id=user_id):
@@ -527,7 +547,7 @@ async def stream_scrape(
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # =============================================================================
-# Export & Import (Tenant Isolated)
+# Export & Import (Supports Free Guest Export & Tenant Isolation)
 # =============================================================================
 @app.get("/api/export/csv")
 def export_csv(
@@ -535,10 +555,18 @@ def export_csv(
     city: str = Query(""),
     has_phone: Optional[bool] = Query(None),
     search: str = Query(""),
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    user: Optional[Dict[str, Any]] = Depends(get_optional_user)
 ):
-    user_id = None if current_user["role"] == "admin" else current_user["id"]
-    leads = db.get_leads(user_id=user_id, search=search, status=status, city=city, has_phone=has_phone, limit=50000)
+    user_id = None
+    limit = 50000
+    if user:
+        user_id = None if user["role"] == "admin" else user["id"]
+    else:
+        # Guest export of their 5 free leads
+        user_id = 0
+        limit = 5
+
+    leads = db.get_leads(user_id=user_id, search=search, status=status, city=city, has_phone=has_phone, limit=limit)
     if not leads:
         df = pd.DataFrame(columns=[
             "ID", "Business Name", "Phone Number", "Address", "City", "Category",
@@ -582,10 +610,18 @@ def export_excel(
     city: str = Query(""),
     has_phone: Optional[bool] = Query(None),
     search: str = Query(""),
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    user: Optional[Dict[str, Any]] = Depends(get_optional_user)
 ):
-    user_id = None if current_user["role"] == "admin" else current_user["id"]
-    leads = db.get_leads(user_id=user_id, search=search, status=status, city=city, has_phone=has_phone, limit=50000)
+    user_id = None
+    limit = 50000
+    if user:
+        user_id = None if user["role"] == "admin" else user["id"]
+    else:
+        # Guest export of their 5 free leads
+        user_id = 0
+        limit = 5
+
+    leads = db.get_leads(user_id=user_id, search=search, status=status, city=city, has_phone=has_phone, limit=limit)
     if not leads:
         df = pd.DataFrame(columns=[
             "ID", "Business Name", "Phone Number", "Address", "City", "Category",
