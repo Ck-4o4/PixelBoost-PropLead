@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PixelBoost PropLeadAi — Real Estate Lead Generation & Calling CRM</title>
+  <meta name="description" content="PixelBoost PropLeadAi - AI-Powered Real Estate Lead Scraper & Telecalling CRM for India. Extract verified phone numbers, WhatsApp, and Instagram contacts from Google Maps.">
+  <link rel="icon" type="image/png" href="logo_icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo-wrap">
+          <img src="logo_badge.png" alt="PixelBoost Logo" class="sidebar-logo-img">
+        </div>
+        <div class="brand-text">
+          <h2>PropLead<span class="brand-highlight">Ai</span> <span class="pro-badge">PRO</span></h2>
+          <p class="brand-sub">Performance Lead Engine & CRM</p>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="scraper" id="nav-scraper">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span>Lead Generator</span>
+        </button>
+        <button class="nav-item" data-tab="crm" id="nav-crm">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+          <span>Calling CRM Leads</span>
+          <span class="count-pill" id="sidebar-lead-count">0</span>
+        </button>
+        <button class="nav-item" data-tab="export" id="nav-export">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Export & Import</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="made-by-card">
+          <span class="heart-pulse">❤️</span>
+          <div class="made-by-text">
+            <span>Made with love</span>
+            <strong>By CK</strong>
+          </div>
+        </div>
+        <div class="system-status">
+          <span class="live-dot"></span>
+          <span>Offline Database Active</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Header Stats Bar -->
+      <header class="top-header">
+        <div class="header-title-box">
+          <div class="badge-pill">🇮🇳 India Real Estate Edition</div>
+          <h1 id="page-title">Lead Generation Studio</h1>
+          <p id="page-subtitle">Extract verified phone numbers, WhatsApp contacts & local real estate brokers directly from Google Maps</p>
+        </div>
+        <div class="header-metrics">
+          <div class="metric-card">
+            <span class="metric-label">Total Leads</span>
+            <span class="metric-num" id="stat-total">0</span>
+          </div>
+          <div class="metric-card highlight-green">
+            <span class="metric-label">Verified Numbers</span>
+            <span class="metric-num text-emerald" id="stat-phone">0</span>
+          </div>
+          <div class="metric-card highlight-amber">
+            <span class="metric-label">Hot / Deals</span>
+            <span class="metric-num text-amber" id="stat-interested">0</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- TAB 1: SCRAPER STUDIO -->
+      <section class="tab-pane active" id="tab-scraper">
+        <div class="scraper-grid">
+          <!-- Scraper Control Card -->
+          <div class="card scraper-card">
+            <div class="card-top-bar">
+              <div class="card-heading">
+                <span class="card-icon-tag">⚡</span>
+                <div>
+                  <h3>Search Parameters</h3>
+                  <p>Configure industry & target locality</p>
+                </div>
+              </div>
+              <!-- Search Mode Toggle -->
+              <div class="mode-toggle-group">
+                <button type="button" class="mode-btn active" id="mode-btn-preset">🏢 Industry List</button>
+                <button type="button" class="mode-btn" id="mode-btn-custom">🔍 Custom Keyword</button>
+              </div>
+            </div>
+            
+            <form id="scraper-form" class="clean-form">
+              <!-- Industry Category Preset -->
+              <div class="form-row" id="group-preset-category">
+                <label class="form-label">Target Business / Industry Category</label>
+                <div class="input-wrapper">
+                  <select id="search-category" class="select-field">
+                    <optgroup label="🏠 Real Estate & Property">
+                      <option value="Real Estate Agents" selected>🏡 Real Estate Brokers & Channel Partners (CPs)</option>
+                      <option value="Property Dealers">🤝 Local Property Dealers & Consultants</option>
+                      <option value="Luxury Real Estate Brokers">💎 Luxury Villa & Penthouse Brokers</option>
+                      <option value="Rental Property Agents">🔑 Rental & Flat Leasing Agents</option>
+                      <option value="PG and Hostel Operators">🛏️ Co-living & PG Operators</option>
+                    </optgroup>
+                    <optgroup label="🏗️ Builders, Developers & Construction">
+                      <option value="Real Estate Builders">🏗️ Builders & Real Estate Developers</option>
+                      <option value="Civil Contractors">🔨 Civil Contractors & Construction Companies</option>
+                      <option value="Architects">📐 Architects & Planners</option>
+                      <option value="Interior Designers">🎨 Interior Designers & Contractors</option>
+                      <option value="Building Material Suppliers">🧱 Building Material & Hardware Traders</option>
+                    </optgroup>
+                    <optgroup label="🏬 Commercial, Land & Industrial">
+                      <option value="Commercial Property Consultants">🏬 Commercial Office & Retail Consultants</option>
+                      <option value="Warehouse and Industrial Sheds">🏭 Warehouse & Industrial Land Brokers</option>
+                      <option value="Plot and Farmhouse Dealers">🌳 NA Plot, Land & Farmhouse Brokers</option>
+                      <option value="Coworking Spaces">💻 Co-working Spaces & Business Centers</option>
+                    </optgroup>
+                    <optgroup label="💳 Finance, Legal & DSA">
+                      <option value="Home Loan DSA Agents">💳 Home Loan & Mortgage DSA Agents</option>
+                      <option value="Property Lawyers">⚖️ Property Lawyers & RERA Advisors</option>
+                      <option value="Property Valuation Experts">📊 Approved Property Valuers</option>
+                    </optgroup>
+                    <optgroup label="💼 High Net Worth / B2B Calling Targets">
+                      <option value="Chartered Accountants">💼 Chartered Accountants & CA Firms (HNIs)</option>
+                      <option value="Doctors and Clinics">🩺 Doctors & Clinic Owners (HNI Investors)</option>
+                      <option value="Pharmaceutical Companies">💊 Pharma Manufacturers & Dealers</option>
+                      <option value="Automobile Showrooms">🚗 Car Showroom Dealerships</option>
+                      <option value="Hotel and Resorts">🏨 Hotels, Resorts & Banquets</option>
+                      <option value="Jewellers and Gold Traders">💍 Jewellers & Bullion Merchants</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Custom Keyword (Hidden by default) -->
+              <div class="form-row hidden" id="group-custom-keyword">
+                <label class="form-label">Custom Search Keywords</label>
+                <div class="input-wrapper">
+                  <input type="text" id="search-query" class="text-field" placeholder="e.g. Pharma Companies, Textile Traders, Solar Panels..." value="Real Estate Agents">
+                </div>
+              </div>
+
+              <!-- Location Grid: City & Locality -->
+              <div class="form-grid-2">
+                <div class="form-row">
+                  <label class="form-label">City / Region</label>
+                  <select id="city-preset-select" class="select-field">
+                    <optgroup label="Tier 1 — Metros">
+                      <option value="Mumbai">Mumbai (MMR)</option>
+                      <option value="Delhi NCR">Delhi NCR (Gurgaon / Noida)</option>
+                      <option value="Bangalore">Bangalore (Bengaluru)</option>
+                      <option value="Ahmedabad" selected>Ahmedabad</option>
+                      <option value="Pune">Pune</option>
+                      <option value="Hyderabad">Hyderabad</option>
+                      <option value="Chennai">Chennai</option>
+                      <option value="Kolkata">Kolkata</option>
+                    </optgroup>
+                    <optgroup label="Tier 2 — Growth Hubs">
+                      <option value="Surat">Surat</option>
+                      <option value="Jaipur">Jaipur</option>
+                      <option value="Lucknow">Lucknow</option>
+                      <option value="Chandigarh Tricity">Chandigarh / Mohali</option>
+                      <option value="Indore">Indore</option>
+                      <option value="Goa">Goa</option>
+                      <option value="Kochi">Kochi</option>
+                      <option value="Coimbatore">Coimbatore</option>
+                      <option value="Nagpur">Nagpur</option>
+                      <option value="Vadodara">Vadodara</option>
+                    </optgroup>
+                    <option value="custom">✏️ Other City...</option>
+                  </select>
+                </div>
+
+                <div class="form-row">
+                  <label class="form-label">Specific Area / Locality</label>
+                  <select id="area-preset-select" class="select-field">
+                    <!-- Populated dynamically -->
+                  </select>
+                  <input type="hidden" id="search-city" value="SG Highway, Ahmedabad">
+                </div>
+              </div>
+
+              <!-- Quick Locality Chips -->
+              <div class="form-row">
+                <div class="chip-label-row">
+                  <span class="sub-label">Popular Localities:</span>
+                  <span class="text-dim-xs">Click to select</span>
+                </div>
+                <div class="chips-container" id="area-chips-container">
+                  <!-- Chips injected dynamically -->
+                </div>
+              </div>
+
+              <!-- Volume Slider & Action -->
+              <div class="slider-box">
+                <div class="slider-header">
+                  <span class="form-label">Extraction Target</span>
+                  <span id="max-results-val" class="slider-pill">25 Leads</span>
+                </div>
+                <input type="range" id="max-results" min="5" max="100" step="5" value="25" class="range-slider">
+              </div>
+
+              <div class="action-btn-row">
+                <button type="submit" class="btn-hero btn-extract" id="btn-start-scrape">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                  <span>Start Extracting Leads</span>
+                </button>
+                <button type="button" class="btn-hero btn-stop hidden" id="btn-stop-scrape">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="6" y="6" width="12" height="12"></rect>
+                  </svg>
+                  <span>Stop Extraction</span>
+                </button>
+              </div>
+            </form>
+
+            <!-- Live Progress Bar -->
+            <div class="progress-box hidden" id="progress-container">
+              <div class="progress-info">
+                <span id="progress-status-text">Connecting to Google Maps...</span>
+                <span id="progress-pct" class="font-mono">0%</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-bar-fill"></div>
+              </div>
+            </div>
+
+            <!-- Terminal Output Activity -->
+            <div class="console-box">
+              <div class="console-top">
+                <div class="console-lights">
+                  <span></span><span></span><span></span>
+                </div>
+                <span class="console-title">Live Engine Log</span>
+                <button class="console-clear" id="btn-clear-logs">Clear</button>
+              </div>
+              <div class="console-body" id="log-console">
+                <div class="log-line text-muted">[System] Engine ready. Select parameters above to start lead extraction.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Discovered Stream -->
+          <div class="card stream-card">
+            <div class="card-top-bar">
+              <div class="card-heading">
+                <span class="card-icon-tag green">✨</span>
+                <div>
+                  <h3>Live Extracted Leads</h3>
+                  <p>Real-time Google Maps feed</p>
+                </div>
+              </div>
+              <span class="live-counter" id="stream-count">0 Extracted</span>
+            </div>
+            
+            <div class="stream-scroll-box" id="live-leads-list">
+              <div class="stream-empty">
+                <div class="empty-icon-circle">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 8v4l3 3"></path>
+                  </svg>
+                </div>
+                <h4>No Leads in Current Session</h4>
+                <p>Click "Start Extracting Leads" to stream verified contacts in real time.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: CALLING LEADS CRM -->
+      <section class="tab-pane" id="tab-crm">
+        <div class="card crm-card">
+          <!-- CRM Control Bar -->
+          <div class="crm-header-toolbar">
+            <div class="search-input-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="crm-search" placeholder="Search by name, phone, address, notes...">
+            </div>
+
+            <div class="filter-controls">
+              <select id="filter-status" class="filter-select">
+                <option value="">All Statuses</option>
+                <option value="New">🟢 New (Uncalled)</option>
+                <option value="Interested">⭐ Interested / Hot</option>
+                <option value="Follow-up">📅 Follow-up / Callback</option>
+                <option value="Ring No Response">📵 Ring No Response</option>
+                <option value="Not Interested">❌ Not Interested</option>
+                <option value="Deal Closed">🏆 Deal Closed</option>
+              </select>
+
+              <select id="filter-area" class="filter-select">
+                <option value="">📍 All Areas / Cities</option>
+                <!-- Populated dynamically -->
+              </select>
+
+              <select id="filter-phone" class="filter-select">
+                <option value="">All Contacts</option>
+                <option value="true" selected>📞 Has Phone Number</option>
+                <option value="false">No Phone Number</option>
+              </select>
+
+              <button class="btn-control" id="btn-refresh-leads">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bulk Actions Bar -->
+          <div class="bulk-bar hidden" id="bulk-actions-bar">
+            <span id="selected-count-text">0 leads selected</span>
+            <div class="bulk-actions-right">
+              <select id="bulk-status-select" class="select-field-sm">
+                <option value="">Set Status...</option>
+                <option value="New">🟢 Set New</option>
+                <option value="Interested">⭐ Set Interested</option>
+                <option value="Follow-up">📅 Set Follow-up</option>
+                <option value="Ring No Response">📵 Set RNR</option>
+                <option value="Not Interested">❌ Set Not Interested</option>
+                <option value="Deal Closed">🏆 Set Deal Closed</option>
+              </select>
+              <button class="btn-sm btn-primary-sm" id="btn-bulk-status">Apply Status</button>
+              <button class="btn-sm btn-danger-sm" id="btn-bulk-delete">Delete</button>
+            </div>
+          </div>
+
+          <!-- Leads Table -->
+          <div class="crm-table-container">
+            <table class="crm-table" id="leads-table">
+              <thead>
+                <tr>
+                  <th width="38"><input type="checkbox" id="select-all-leads"></th>
+                  <th>Business / Contact Name</th>
+                  <th>Calling & WhatsApp</th>
+                  <th>Locality & Address</th>
+                  <th>Rating</th>
+                  <th>Calling Pipeline</th>
+                  <th>Staff Notes / Comments</th>
+                  <th width="80">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="leads-table-body">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Table Footer -->
+          <div class="table-footer-bar">
+            <span id="table-summary-text">Showing 0 leads</span>
+            <div class="footer-export-btns">
+              <a href="/api/export/excel" class="btn-text-link" id="quick-export-excel">📥 Download Excel (.xlsx)</a>
+              <a href="/api/export/csv" class="btn-text-link" id="quick-export-csv">📄 Download CSV</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: EXPORT & IMPORT -->
+      <section class="tab-pane" id="tab-export">
+        <div class="export-layout">
+          <!-- Excel / CSV Export Card -->
+          <div class="card export-card">
+            <div class="card-top-bar">
+              <div class="card-heading">
+                <span class="card-icon-tag green">📥</span>
+                <div>
+                  <h3>Telecaller Sheets Export</h3>
+                  <p>Download formatted lists for your calling team</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="export-formats-grid">
+              <div class="export-format-item">
+                <div class="format-icon excel-icon">XLSX</div>
+                <div class="format-desc">
+                  <h4>Microsoft Excel (.xlsx)</h4>
+                  <p>Formatted spreadsheet with bold header columns, formatted phone numbers & status tags ready for calling staff.</p>
+                </div>
+                <a href="/api/export/excel" class="btn-download" download>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Download Excel</span>
+                </a>
+              </div>
+
+              <div class="export-format-item">
+                <div class="format-icon csv-icon">CSV</div>
+                <div class="format-desc">
+                  <h4>Standard CSV (.csv)</h4>
+                  <p>Universal CSV file compatible with Google Sheets, auto-dialers, Zoho, Salesforce, or LeadSquared CRM.</p>
+                </div>
+                <a href="/api/export/csv" class="btn-download secondary" download>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Download CSV</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- CSV Import Card -->
+          <div class="card import-card">
+            <div class="card-top-bar">
+              <div class="card-heading">
+                <span class="card-icon-tag">📤</span>
+                <div>
+                  <h3>Merge Existing Sheets</h3>
+                  <p>Import CSV with automatic phone deduplication</p>
+                </div>
+              </div>
+            </div>
+
+            <form id="import-form" class="dropzone-box">
+              <input type="file" id="import-file" accept=".csv" class="file-hidden">
+              <label for="import-file" class="dropzone-content">
+                <div class="upload-icon-circle">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                </div>
+                <span class="dropzone-main-text">Click to choose a CSV file or drag & drop</span>
+                <span class="dropzone-sub-text" id="file-name-display">Supports columns: Name, Phone, Address, City</span>
+              </label>
+              <button type="submit" class="btn-hero full-width mt-3" id="btn-import-submit" disabled>
+                <span>Import & Merge Into CRM</span>
+              </button>
+            </form>
+            <div id="import-result"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Attribution Footer -->
+      <footer class="app-footer">
+        <div class="footer-attribution">
+          <span>Made with <span class="heart-pulse">❤️</span> by <strong>CK</strong></span>
+          <span class="dot-separator">•</span>
+          <span>PixelBoost PropLeadAi v2.0</span>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-wrapper" id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

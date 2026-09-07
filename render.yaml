@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: propleads-ai
+    env: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /api/stats
+    disk:
+      name: propleads-data
+      mountPath: /app/data
+      sizeGB: 1

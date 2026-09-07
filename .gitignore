@@ -1,0 +1,28 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Playwright & Browsers
+.playwright/
+browser_recordings/
+test_recordings/
+
+# Temp & OS Files
+.DS_Store
+*.log
+scratch/
+.system_generated/
+.user_uploaded/
+.tempmediaStorage/
+
+# Keep leads.db tracked or let it create fresh
+# leads.db

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  propleads:
+    build: .
+    container_name: propleads-crm
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./leads.db:/app/leads.db
+    environment:
+      - PORT=8000
