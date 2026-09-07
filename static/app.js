@@ -482,6 +482,14 @@ function setupScraperEvents() {
 }
 
 function startScraping() {
+  if (!currentUser && guestLeads.length >= 5) {
+    openPricingModal(
+      "🔒 5 Free Leads Limit Reached",
+      "You have used your 5 free trial leads! Sign in or choose a plan below to extract 40 to 100+ verified contacts."
+    );
+    return;
+  }
+
   let query = "";
   const city = presetCitySelect.value;
   const selectedLocality = presetLocalitySelect.value;
@@ -580,12 +588,58 @@ function handleScrapeEvent(data) {
     fetchLeads();
     fetchAreas();
 
-    // If guest user extracted their free leads, show the Pricing Modal!
-    if (!currentUser || (data.scraped_count && data.scraped_count >= 5)) {
+    // If guest user extracted their 5 free leads: Show blurred cards + Lock button + Open pricing modal
+    if (!currentUser && guestLeads.length >= 5) {
+      // Render blurred stream card below extracted leads
+      if (!document.getElementById('blurred-stream-block')) {
+        const blurBlock = document.createElement('div');
+        blurBlock.id = 'blurred-stream-block';
+        blurBlock.className = 'blurred-stream-wrapper';
+        blurBlock.innerHTML = `
+          <div class="stream-lead-card blurred-lead-card">
+            <div class="stream-lead-top"><span class="stream-lead-name">Shree Ram Property Consultants</span><span class="count-pill">⭐ 4.9 (128)</span></div>
+            <div class="stream-lead-meta"><span class="phone-action-pill">+91 98250 XXXXX 🔒</span></div>
+            <div class="stream-lead-addr">SG Highway, Ahmedabad, Gujarat</div>
+          </div>
+          <div class="stream-lead-card blurred-lead-card">
+            <div class="stream-lead-top"><span class="stream-lead-name">Apex Realty Channel Partner</span><span class="count-pill">⭐ 4.8 (94)</span></div>
+            <div class="stream-lead-meta"><span class="phone-action-pill">+91 97240 XXXXX 🔒</span></div>
+            <div class="stream-lead-addr">Prahlad Nagar, Ahmedabad, Gujarat</div>
+          </div>
+          <div class="locked-lead-overlay">
+            <div class="locked-lock-icon">🔒</div>
+            <div class="locked-lead-title">45+ More Verified Brokers in this Area</div>
+            <div class="locked-lead-desc">You've unlocked 5 free trial leads! Sign in or select a plan to extract 40 to 100+ verified contacts.</div>
+            <button class="btn-unlock-leads-cta" onclick="app.openPricingModal()">⚡ Unlock Full List — Choose Plan</button>
+          </div>
+        `;
+        liveLeadsList.appendChild(blurBlock);
+      }
+
+      // Lock extractor button
+      btnStartScrape.innerHTML = '<span>🔒 5 Free Leads Used — Upgrade to Extract More</span>';
+      btnStartScrape.classList.add('btn-locked');
+      btnStartScrape.onclick = (e) => {
+        e.preventDefault();
+        openPricingModal(
+          "🔒 Free Trial Limit Reached (5/5 Leads)",
+          "You've experienced real-time lead extraction! Choose a plan below or sign in to extract more leads."
+        );
+      };
+
+      const sliderHelper = document.getElementById('slider-helper-text');
+      if (sliderHelper) {
+        sliderHelper.textContent = '🔒 Free trial limit reached (5/5 leads). Sign in or choose a plan to extract 40 to 100+ leads.';
+      }
+      const targetBadge = document.getElementById('target-count-badge');
+      if (targetBadge) {
+        targetBadge.textContent = '5 / 5 Leads (Limit Reached)';
+      }
+
       setTimeout(() => {
         openPricingModal(
           "🎉 5 Free Leads Extracted!",
-          "You've experienced real-time lead extraction! Select a plan below to extract up to 100+ leads with direct WhatsApp dialer & CRM export."
+          "You've experienced real-time lead extraction! Choose a plan below or sign in to unlock full CRM access & 100+ verified leads."
         );
       }, 900);
     }
@@ -960,6 +1014,58 @@ function renderLeadsTable(leads) {
 
     leadsTableBody.appendChild(tr);
   });
+
+  // If Guest user has 5 free leads, append 3 blurred rows and upgrade banner
+  if (!currentUser && leads.length >= 5) {
+    const dummyNames = [
+      { name: "Shree Ram Property Consultants", phone: "98250", loc: "SG Highway", cat: "Real Estate Brokers" },
+      { name: "Apex Realty Channel Partner", phone: "97240", loc: "Prahlad Nagar", cat: "Builders & Developers" },
+      { name: "Gujarat Commercial Real Estate Network", phone: "99090", loc: "Sindhu Bhavan Rd", cat: "Commercial Realty" }
+    ];
+
+    dummyNames.forEach(d => {
+      const blurTr = document.createElement('tr');
+      blurTr.className = 'blurred-row';
+      blurTr.innerHTML = `
+        <td><input type="checkbox" disabled></td>
+        <td>
+          <div class="contact-cell">
+            <span class="contact-name">${d.name}</span>
+            <span class="contact-cat">${d.cat} • Web • IG</span>
+          </div>
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <span class="phone-action-pill">+91 ${d.phone} XXXXX 🔒</span>
+            <span class="wa-action-pill">WA 🔒</span>
+          </div>
+        </td>
+        <td><span style="font-size: 0.78rem; color: var(--text-secondary);">${d.loc}</span></td>
+        <td><span class="count-pill">⭐ 4.9 (86)</span></td>
+        <td><span class="status-pill status-new">🟢 New</span></td>
+        <td><input type="text" class="notes-inline-input" value="Verified broker contact..." disabled></td>
+        <td style="text-align: right;"><span class="text-dim-xs">🔒 Locked</span></td>
+      `;
+      leadsTableBody.appendChild(blurTr);
+    });
+
+    const bannerTr = document.createElement('tr');
+    bannerTr.innerHTML = `
+      <td colspan="8" style="padding: 14px 18px; background: #fffbeb; border-top: 1px dashed #fde68a;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.4rem;">🔒</span>
+            <div>
+              <strong style="font-size: 0.88rem; color: #92400e;">45+ More Verified Brokers in this Area (Hidden)</strong>
+              <div style="font-size: 0.78rem; color: #b45309;">You've unlocked 5 free trial leads! Sign in or choose a plan to access the complete list with dialer & Excel exports.</div>
+            </div>
+          </div>
+          <button class="btn-crm-unlock" onclick="app.openPricingModal()">⚡ Unlock Full List — View Plans</button>
+        </div>
+      </td>
+    `;
+    leadsTableBody.appendChild(bannerTr);
+  }
 }
 
 // Inline Status Update

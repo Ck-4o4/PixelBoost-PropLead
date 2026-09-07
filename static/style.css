@@ -2013,5 +2013,145 @@ body {
   background: #15803d;
 }
 
+/* Blurred Locked Leads Preview */
+.blurred-stream-wrapper {
+  position: relative;
+  margin-top: 14px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.blurred-lead-card {
+  filter: blur(4.5px);
+  opacity: 0.55;
+  user-select: none;
+  pointer-events: none;
+  margin-bottom: 10px;
+}
+
+.locked-lead-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.5) 0%, rgba(248, 250, 252, 0.95) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  z-index: 10;
+  border-radius: var(--radius-md);
+  border: 1.5px dashed #cbd5e1;
+}
+
+.locked-lock-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  animation: bounceLock 2s infinite ease-in-out;
+}
+
+@keyframes bounceLock {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.locked-lead-title {
+  font-family: var(--font-brand);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.locked-lead-desc {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  max-width: 380px;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+.btn-unlock-leads-cta {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 10px 22px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-unlock-leads-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
+}
+
+/* Blurred CRM Table Rows */
+.blurred-row td {
+  filter: blur(4px);
+  opacity: 0.5;
+  user-select: none;
+  pointer-events: none;
+}
+
+.locked-crm-banner {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.locked-crm-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.locked-crm-text h4 {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #92400e;
+}
+.locked-crm-text p {
+  font-size: 0.78rem;
+  color: #b45309;
+}
+.btn-crm-unlock {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-crm-unlock:hover {
+  background: #0369a1;
+}
+
+/* Locked Extractor Button State */
+.btn-hero.btn-locked {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1.5px solid #fde68a;
+  cursor: pointer;
+}
+.btn-hero.btn-locked:hover {
+  background: #fde68a;
+  transform: translateY(-1px);
+}
+
 .hidden { display: none !important; }
+
 
