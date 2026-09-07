@@ -884,6 +884,83 @@
     </div>
   </div>
 
+  <!-- Modal: Sign In / Create Account Required to Buy Plan -->
+  <div class="modal-overlay hidden" id="auth-checkout-modal">
+    <div class="modal-card auth-modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.6rem;">🔐</span>
+          <div>
+            <h3 id="auth-modal-title">Sign In or Register to Buy Plan</h3>
+            <p class="modal-subtitle" id="auth-modal-subtitle">Login or create your customer account so your lead credits are instantly activated.</p>
+          </div>
+        </div>
+        <button class="modal-close" id="btn-close-auth-modal">&times;</button>
+      </div>
+
+      <div class="auth-modal-body" style="margin-top: 16px;">
+        <!-- Selected Plan Summary Banner -->
+        <div class="checkout-plan-summary-box" id="checkout-plan-summary" style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong id="auth-summary-plan-name" style="font-size: 1rem; color: var(--text-main);">⭐ Professional Plan</strong>
+              <div id="auth-summary-plan-leads" style="font-size: 0.78rem; color: var(--text-dim);">100 Verified Leads</div>
+            </div>
+            <div id="auth-summary-plan-price" style="font-size: 1.3rem; font-weight: 800; color: var(--primary);">₹999</div>
+          </div>
+        </div>
+
+        <!-- Auth Mode Toggle -->
+        <div class="mode-toggle-group" style="margin-bottom: 16px;">
+          <button type="button" class="mode-btn active" id="tab-btn-auth-login">🔑 Sign In</button>
+          <button type="button" class="mode-btn" id="tab-btn-auth-register">✨ Create Account</button>
+        </div>
+
+        <!-- Sign In Form -->
+        <form id="modal-login-form" class="clean-form">
+          <div class="form-row">
+            <label class="form-label">Registered Email</label>
+            <input type="email" id="modal-login-email" class="text-field" placeholder="you@company.com" required>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Password</label>
+            <input type="password" id="modal-login-password" class="text-field" placeholder="Your password" required>
+          </div>
+          <button type="submit" class="btn-hero full-width mt-3" id="btn-modal-login-submit">
+            <span>Sign In & Proceed to Payment</span>
+          </button>
+        </form>
+
+        <!-- Quick Register Form (Hidden by default) -->
+        <form id="modal-register-form" class="clean-form hidden">
+          <div class="form-grid-2">
+            <div class="form-row">
+              <label class="form-label">Your Name</label>
+              <input type="text" id="modal-reg-name" class="text-field" placeholder="e.g. Rahul Sharma" required>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Company (Optional)</label>
+              <input type="text" id="modal-reg-company" class="text-field" placeholder="e.g. Skyline Realty">
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-row">
+              <label class="form-label">Email Address</label>
+              <input type="email" id="modal-reg-email" class="text-field" placeholder="you@company.com" required>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Password</label>
+              <input type="password" id="modal-reg-password" class="text-field" placeholder="Min 6 characters" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-hero full-width mt-3" id="btn-modal-reg-submit">
+            <span>Create Account & Proceed to Payment</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Create / Edit Customer Account (Master Admin) -->
   <div class="modal-overlay hidden" id="client-modal">
     <div class="modal-card">
@@ -947,6 +1024,8 @@
         </div>
       </form>
     </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-wrapper" id="toast-container"></div>
 

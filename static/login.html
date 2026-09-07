@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — PixelBoost PropLeadAi</title>
+  <title>Login & Register — PixelBoost PropLeadAi</title>
   <link rel="icon" type="image/png" href="logo_icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,15 +24,15 @@
 
     .auth-card {
       width: 100%;
-      max-width: 440px;
+      max-width: 460px;
       background: #ffffff;
       border: 1px solid var(--border-light);
       border-radius: var(--radius-lg);
-      padding: 38px 32px;
+      padding: 36px 32px;
       box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 0 0 1px #e2e8f0;
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 20px;
     }
 
     .auth-header {
@@ -40,7 +40,7 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     .auth-logo {
@@ -69,28 +69,36 @@
       gap: 16px;
     }
 
+    .plan-notice-box {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      font-size: 0.82rem;
+      color: #0369a1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .demo-credentials-box {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      color: #92400e;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
     .auth-footer-text {
       text-align: center;
       font-size: 0.78rem;
       color: var(--text-dim);
       padding-top: 12px;
       border-top: 1px solid var(--border-light);
-    }
-
-    .demo-credentials-box {
-      background: #f0f9ff;
-      border: 1px solid #bae6fd;
-      border-radius: var(--radius-sm);
-      padding: 10px 14px;
-      font-size: 0.78rem;
-      color: #0369a1;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .demo-credentials-box strong {
-      color: #0c4a6e;
     }
   </style>
 </head>
@@ -100,17 +108,26 @@
       <img src="logo_badge.png" alt="PixelBoost" class="auth-logo">
       <div class="auth-title">
         <h1>PixelBoost <span style="color: var(--primary-cyan);">PropLeadAi</span></h1>
-        <p>Sign in to access your lead generator & CRM workspace</p>
+        <p id="auth-header-sub">Sign in or register to access your lead workspace</p>
       </div>
     </div>
 
-    <!-- Master Admin Quick Helper / Demo Credentials -->
-    <div class="demo-credentials-box">
-      <div><strong>Master Admin Access:</strong></div>
-      <div>Email: <code>admin@pixelboost.in</code></div>
-      <div>Password: <code>Admin@PixelBoost2026!</code></div>
+    <!-- Plan Intent Banner (If redirected from Pricing) -->
+    <div class="plan-notice-box hidden" id="plan-notice-banner">
+      <span style="font-size: 1.3rem;">💎</span>
+      <div>
+        <strong id="plan-notice-name">Selected Plan</strong>
+        <div id="plan-notice-desc" style="font-size: 0.76rem; color: #0284c7;">Sign in or register below to proceed to payment.</div>
+      </div>
     </div>
 
+    <!-- Mode Toggle: Sign In vs Register -->
+    <div class="mode-toggle-group">
+      <button type="button" class="mode-btn active" id="btn-mode-login">🔑 Sign In</button>
+      <button type="button" class="mode-btn" id="btn-mode-register">✨ Create Account</button>
+    </div>
+
+    <!-- Sign In Form -->
     <form class="auth-form" id="login-form">
       <div class="form-row">
         <label class="form-label" for="login-email">Email Address</label>
@@ -122,15 +139,53 @@
         <input type="password" id="login-password" class="text-field" placeholder="••••••••" required>
       </div>
 
-      <button type="submit" class="btn-hero btn-extract" id="btn-login-submit" style="margin-top: 8px;">
+      <button type="submit" class="btn-hero btn-extract" id="btn-login-submit" style="margin-top: 4px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
           <polyline points="10 17 15 12 10 7"></polyline>
           <line x1="15" y1="12" x2="3" y2="12"></line>
         </svg>
-        <span>Sign In to Dashboard</span>
+        <span id="btn-login-text">Sign In to Dashboard</span>
       </button>
     </form>
+
+    <!-- Register Form (Hidden by default) -->
+    <form class="auth-form hidden" id="register-form">
+      <div class="form-row">
+        <label class="form-label" for="reg-name">Full Name</label>
+        <input type="text" id="reg-name" class="text-field" placeholder="e.g. Rahul Sharma" required>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="reg-company">Company / Agency (Optional)</label>
+        <input type="text" id="reg-company" class="text-field" placeholder="e.g. Skyline Realty Group">
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="reg-email">Email Address</label>
+        <input type="email" id="reg-email" class="text-field" placeholder="name@company.com" required>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="reg-password">Create Password</label>
+        <input type="password" id="reg-password" class="text-field" placeholder="Min 6 characters" required>
+      </div>
+
+      <button type="submit" class="btn-hero btn-extract" id="btn-reg-submit" style="margin-top: 4px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <line x1="19" y1="8" x2="19" y2="14"></line>
+          <line x1="22" y1="11" x2="16" y2="11"></line>
+        </svg>
+        <span id="btn-reg-text">Create Account & Continue</span>
+      </button>
+    </form>
+
+    <div class="demo-credentials-box">
+      <div><strong>👑 Master Admin Access:</strong></div>
+      <div>Email: <code>admin@pixelboost.in</code> • Pass: <code>Admin@PixelBoost2026!</code></div>
+    </div>
 
     <div class="auth-footer-text">
       Made with <span class="heart-pulse">❤️</span> by <strong>CK</strong> • PixelBoost Agency
@@ -140,30 +195,47 @@
   <div class="toast-wrapper" id="toast-container"></div>
 
   <script>
-    const form = document.getElementById('login-form');
-    const emailInput = document.getElementById('login-email');
-    const passInput = document.getElementById('login-password');
-    const submitBtn = document.getElementById('btn-login-submit');
+    const btnModeLogin = document.getElementById('btn-mode-login');
+    const btnModeRegister = document.getElementById('btn-mode-register');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const planBanner = document.getElementById('plan-notice-banner');
+    const planNoticeName = document.getElementById('plan-notice-name');
+    const planNoticeDesc = document.getElementById('plan-notice-desc');
 
-    // If token already present, test /api/auth/me
-    const existingToken = localStorage.getItem('pixelboost_token');
-    if (existingToken) {
-      fetch('/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${existingToken}` }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.id) {
-          window.location.href = '/';
-        }
-      })
-      .catch(() => {});
+    // Parse URL params (e.g. ?plan=Professional&leads=100&price=999)
+    const urlParams = new URLSearchParams(window.location.search);
+    const planParam = urlParams.get('plan');
+    const leadsParam = urlParams.get('leads');
+    const priceParam = urlParams.get('price');
+
+    if (planParam) {
+      planBanner.classList.remove('hidden');
+      planNoticeName.textContent = `Selected Plan: ${planParam} Plan (${leadsParam || ''} Leads)`;
+      planNoticeDesc.textContent = `Price: ₹${priceParam || '0'} • Login or register below to proceed to payment.`;
     }
 
-    form.addEventListener('submit', async (e) => {
+    // Toggle Modes
+    btnModeLogin.addEventListener('click', () => {
+      btnModeLogin.classList.add('active');
+      btnModeRegister.classList.remove('active');
+      loginForm.classList.remove('hidden');
+      registerForm.classList.add('hidden');
+    });
+
+    btnModeRegister.addEventListener('click', () => {
+      btnModeRegister.classList.add('active');
+      btnModeLogin.classList.remove('active');
+      registerForm.classList.remove('hidden');
+      loginForm.classList.add('hidden');
+    });
+
+    // Sign In Submit
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = emailInput.value.trim();
-      const password = passInput.value;
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const submitBtn = document.getElementById('btn-login-submit');
 
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<span>Verifying...</span>';
@@ -185,20 +257,60 @@
 
         showToast('Login successful! Redirecting...', 'success');
         setTimeout(() => {
-          window.location.href = '/';
-        }, 600);
+          if (planParam) {
+            window.location.href = `/?buy_plan=${encodeURIComponent(planParam)}&leads=${encodeURIComponent(leadsParam || '')}&price=${encodeURIComponent(priceParam || '')}`;
+          } else {
+            window.location.href = '/';
+          }
+        }, 500);
 
       } catch (err) {
         showToast(err.message, 'error');
         submitBtn.disabled = false;
-        submitBtn.innerHTML = `
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-            <polyline points="10 17 15 12 10 7"></polyline>
-            <line x1="15" y1="12" x2="3" y2="12"></line>
-          </svg>
-          <span>Sign In to Dashboard</span>
-        `;
+        submitBtn.innerHTML = '<span>Sign In to Dashboard</span>';
+      }
+    });
+
+    // Register Submit
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value.trim();
+      const company = document.getElementById('reg-company').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const submitBtn = document.getElementById('btn-reg-submit');
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>Creating Account...</span>';
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, company, email, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Registration failed.');
+        }
+
+        localStorage.setItem('pixelboost_token', data.access_token);
+        localStorage.setItem('pixelboost_user', JSON.stringify(data.user));
+
+        showToast('Account created successfully! Redirecting...', 'success');
+        setTimeout(() => {
+          if (planParam) {
+            window.location.href = `/?buy_plan=${encodeURIComponent(planParam)}&leads=${encodeURIComponent(leadsParam || '')}&price=${encodeURIComponent(priceParam || '')}`;
+          } else {
+            window.location.href = '/';
+          }
+        }, 500);
+
+      } catch (err) {
+        showToast(err.message, 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Create Account & Continue</span>';
       }
     });
 

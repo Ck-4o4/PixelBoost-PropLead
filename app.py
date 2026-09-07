@@ -144,6 +144,12 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    company: Optional[str] = ""
+
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
@@ -252,6 +258,40 @@ def get_plans():
 # =============================================================================
 # Auth Endpoints
 # =============================================================================
+@app.post("/api/auth/register")
+def register(payload: RegisterRequest):
+    success, msg, user_id = db.create_user(
+        email=payload.email,
+        password=payload.password,
+        name=payload.name,
+        company=payload.company or "",
+        role="client",
+        credits_limit=5
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+
+    user = db.get_user_by_id(user_id)
+    access_token = create_access_token(
+        data={"sub": str(user["id"]), "email": user["email"], "role": user["role"]},
+        expires_delta=timedelta(days=30)
+    )
+    return {
+        "success": True,
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "company": user["company"],
+            "role": user["role"],
+            "credits_limit": user["credits_limit"],
+            "credits_used": user["credits_used"],
+            "credits_remaining": max(0, user["credits_limit"] - user["credits_used"])
+        }
+    }
+
 @app.post("/api/auth/login")
 def login(payload: LoginRequest):
     user = db.get_user_by_email(payload.email)

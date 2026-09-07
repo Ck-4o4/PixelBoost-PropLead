@@ -329,11 +329,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupImportEvents();
   setupAdminEvents();
   setupPricingEvents();
+  setupAuthCheckoutEvents();
   setupLogoutEvent();
 
   fetchStats();
   fetchAreas();
   fetchLeads();
+
+  // Check if URL has pending ?buy_plan=...
+  const urlParams = new URLSearchParams(window.location.search);
+  const buyPlanParam = urlParams.get('buy_plan');
+  const leadsParam = urlParams.get('leads');
+  const priceParam = urlParams.get('price');
+  if (buyPlanParam) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    buyPlan(buyPlanParam, leadsParam, priceParam);
+  }
 });
 
 // Logout
@@ -1501,6 +1512,18 @@ function showToast(msg, type = 'info') {
 }
 
 // Pricing & Upgrade Modal Functions
+let pendingPlanPurchase = null;
+
+const authCheckoutModal = document.getElementById('auth-checkout-modal');
+const btnCloseAuthModal = document.getElementById('btn-close-auth-modal');
+const tabBtnAuthLogin = document.getElementById('tab-btn-auth-login');
+const tabBtnAuthRegister = document.getElementById('tab-btn-auth-register');
+const modalLoginForm = document.getElementById('modal-login-form');
+const modalRegisterForm = document.getElementById('modal-register-form');
+const authSummaryPlanName = document.getElementById('auth-summary-plan-name');
+const authSummaryPlanLeads = document.getElementById('auth-summary-plan-leads');
+const authSummaryPlanPrice = document.getElementById('auth-summary-plan-price');
+
 function setupPricingEvents() {
   if (btnHeaderUpgrade) {
     btnHeaderUpgrade.addEventListener('click', () => {
@@ -1523,6 +1546,141 @@ function setupPricingEvents() {
   }
 }
 
+function setupAuthCheckoutEvents() {
+  if (btnCloseAuthModal) {
+    btnCloseAuthModal.addEventListener('click', () => {
+      closeAuthCheckoutModal();
+    });
+  }
+
+  if (authCheckoutModal) {
+    authCheckoutModal.addEventListener('click', (e) => {
+      if (e.target === authCheckoutModal) {
+        closeAuthCheckoutModal();
+      }
+    });
+  }
+
+  if (tabBtnAuthLogin && tabBtnAuthRegister) {
+    tabBtnAuthLogin.addEventListener('click', () => {
+      tabBtnAuthLogin.classList.add('active');
+      tabBtnAuthRegister.classList.remove('active');
+      modalLoginForm.classList.remove('hidden');
+      modalRegisterForm.classList.add('hidden');
+    });
+
+    tabBtnAuthRegister.addEventListener('click', () => {
+      tabBtnAuthRegister.classList.add('active');
+      tabBtnAuthLogin.classList.remove('active');
+      modalRegisterForm.classList.remove('hidden');
+      modalLoginForm.classList.add('hidden');
+    });
+  }
+
+  // Handle Login on Checkout Modal
+  if (modalLoginForm) {
+    modalLoginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('modal-login-email').value.trim();
+      const password = document.getElementById('modal-login-password').value;
+      const submitBtn = document.getElementById('btn-modal-login-submit');
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>Signing in...</span>';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Login failed. Check your email/password.');
+        }
+
+        localStorage.setItem('pixelboost_token', data.access_token);
+        localStorage.setItem('pixelboost_user', JSON.stringify(data.user));
+        currentUser = data.user;
+        updateUserProfileUI();
+        closeAuthCheckoutModal();
+        showToast(`Welcome back, ${currentUser.name}! Proceeding to buy plan...`, 'success');
+
+        if (pendingPlanPurchase) {
+          executePlanPurchase(pendingPlanPurchase.planName, pendingPlanPurchase.leads, pendingPlanPurchase.price);
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Sign In & Proceed to Payment</span>';
+      }
+    });
+  }
+
+  // Handle Register on Checkout Modal
+  if (modalRegisterForm) {
+    modalRegisterForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('modal-reg-name').value.trim();
+      const company = document.getElementById('modal-reg-company').value.trim();
+      const email = document.getElementById('modal-reg-email').value.trim();
+      const password = document.getElementById('modal-reg-password').value;
+      const submitBtn = document.getElementById('btn-modal-reg-submit');
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>Creating Account...</span>';
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, company, email, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Registration failed.');
+        }
+
+        localStorage.setItem('pixelboost_token', data.access_token);
+        localStorage.setItem('pixelboost_user', JSON.stringify(data.user));
+        currentUser = data.user;
+        updateUserProfileUI();
+        closeAuthCheckoutModal();
+        showToast(`Account created for ${currentUser.name}! Proceeding to buy plan...`, 'success');
+
+        if (pendingPlanPurchase) {
+          executePlanPurchase(pendingPlanPurchase.planName, pendingPlanPurchase.leads, pendingPlanPurchase.price);
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Create Account & Proceed to Payment</span>';
+      }
+    });
+  }
+}
+
+function openAuthCheckoutModal(planName, leads, price) {
+  if (!authCheckoutModal) return;
+  const isCustom = price === 'Custom' || String(price).toLowerCase().includes('custom');
+  const priceText = isCustom ? 'Custom Quote' : `₹${price}`;
+  const leadsText = isCustom ? '250+ Custom Leads' : `${leads} Leads`;
+
+  if (authSummaryPlanName) authSummaryPlanName.textContent = `${planName} Plan`;
+  if (authSummaryPlanLeads) authSummaryPlanLeads.textContent = `${leadsText} • Verified Direct Contacts`;
+  if (authSummaryPlanPrice) authSummaryPlanPrice.textContent = priceText;
+
+  authCheckoutModal.classList.remove('hidden');
+}
+
+function closeAuthCheckoutModal() {
+  if (authCheckoutModal) authCheckoutModal.classList.add('hidden');
+}
+
 function openPricingModal(customTitle, customSubtitle) {
   if (!pricingModal) return;
   const titleEl = document.getElementById('pricing-modal-title');
@@ -1537,14 +1695,25 @@ function closePricingModal() {
 }
 
 function buyPlan(planName, leads, price) {
+  if (!currentUser) {
+    // Force login or registration before purchasing!
+    pendingPlanPurchase = { planName, leads, price };
+    openAuthCheckoutModal(planName, leads, price);
+    return;
+  }
+
+  executePlanPurchase(planName, leads, price);
+}
+
+function executePlanPurchase(planName, leads, price) {
   const isCustom = price === 'Custom' || String(price).toLowerCase().includes('custom');
   const priceText = isCustom ? 'Custom Enterprise Quote' : `₹${price}`;
   const leadsText = isCustom ? '250+ Custom Leads' : `${leads} Leads`;
 
-  const msg = `Hi CK! I want to activate the *${planName} Plan* (${leadsText} @ ${priceText}) for PixelBoost PropLeadAi.\n\nPlease share payment details / UPI to activate my account.`;
+  const msg = `Hi CK! I am logged in as *${currentUser.name}* (${currentUser.email}, User ID: #${currentUser.id}${currentUser.company ? ', Company: ' + currentUser.company : ''}).\n\nI want to activate the *${planName} Plan* (${leadsText} @ ${priceText}) for PixelBoost PropLeadAi.\n\nPlease share payment details / UPI QR code to credit the leads to my account.`;
   const waUrl = `https://wa.me/919999999999?text=${encodeURIComponent(msg)}`;
 
-  showToast(`Opening WhatsApp order for ${planName} Plan (${priceText})...`, 'success');
+  showToast(`Opening payment order for ${currentUser.name} (${planName} Plan @ ${priceText})...`, 'success');
   window.open(waUrl, '_blank');
 }
 
@@ -1563,6 +1732,9 @@ function startFreeTrial() {
 // Expose on global window object for HTML inline buttons
 window.app = {
   buyPlan,
+  executePlanPurchase,
+  openAuthCheckoutModal,
+  closeAuthCheckoutModal,
   startFreeTrial,
   openPricingModal,
   closePricingModal,
