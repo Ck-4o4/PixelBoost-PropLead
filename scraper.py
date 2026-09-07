@@ -35,16 +35,30 @@ class GoogleMapsLeadScraper:
         query: str,
         max_results: int = 50,
         city: str = "",
-        category: str = "Real Estate"
+        category: str = "Real Estate",
+        user_id: int = 1
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Scrapes Google Maps for leads matching the query.
+        Scrapes Google Maps for leads matching the query for a specific tenant.
         Yields progress and lead data objects in real-time.
         """
         self._is_cancelled = False
         full_query = query.strip()
         if city and city.lower() not in full_query.lower():
             full_query = f"{full_query} in {city.strip()}"
+
+        # Check tenant credits
+        user = db.get_user_by_id(user_id)
+        if user and user["role"] != "admin":
+            if user["status"] == "suspended":
+                yield {"type": "error", "message": "Your account has been suspended. Please contact PixelBoost admin."}
+                return
+            
+            remaining = user["credits_limit"] - user["credits_used"]
+            if remaining <= 0:
+                yield {"type": "error", "message": f"Credit quota exceeded ({user['credits_used']}/{user['credits_limit']}). Please upgrade your credits."}
+                return
+            max_results = min(max_results, remaining)
 
         yield {
             "type": "log",
@@ -279,7 +293,7 @@ class GoogleMapsLeadScraper:
 
                     if lead_data["name"]:
                         scraped_count += 1
-                        is_new, lead_id = db.insert_or_update_lead(lead_data)
+                        is_new, lead_id = db.insert_or_update_lead(lead_data, user_id=user_id)
                         if is_new:
                             new_leads_count += 1
                         

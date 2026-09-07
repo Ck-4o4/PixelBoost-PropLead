@@ -8,3 +8,5 @@ openpyxl>=3.1.2
 pydantic>=2.6.4
 python-multipart>=0.0.9
 a2wsgi>=1.10.4
+pyjwt>=2.8.0
+bcrypt>=4.1.2

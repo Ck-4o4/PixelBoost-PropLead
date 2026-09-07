@@ -3,6 +3,7 @@ import os
 import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from auth import hash_password
 
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "leads.db")
 
@@ -27,9 +28,31 @@ class Database:
     def init_db(self):
         with self.get_connection() as conn:
             cursor = conn.cursor()
+
+            # 1. Users table (for Multi-Tenant SaaS & Master Admin)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    company TEXT DEFAULT '',
+                    role TEXT DEFAULT 'client',
+                    status TEXT DEFAULT 'active',
+                    credits_limit INTEGER DEFAULT 1000,
+                    credits_used INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_email ON users(email)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_role ON users(role)")
+
+            # 2. Leads table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS leads (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER DEFAULT 1,
                     name TEXT NOT NULL,
                     phone TEXT,
                     clean_phone TEXT,
@@ -48,20 +71,176 @@ class Database:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_phone ON leads(clean_phone)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON leads(call_status)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_query ON leads(query)")
-            
-            # Migration: add instagram column if upgrading existing DB
+            # Migrations for existing DBs
             try:
                 cursor.execute("ALTER TABLE leads ADD COLUMN instagram TEXT DEFAULT ''")
             except Exception:
                 pass
+
+            try:
+                cursor.execute("ALTER TABLE leads ADD COLUMN user_id INTEGER DEFAULT 1")
+            except Exception:
+                pass
+
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_phone ON leads(clean_phone)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON leads(call_status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_query ON leads(query)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON leads(user_id)")
+
+            # Seed default Master Super-Admin if not exists
+            cursor.execute("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
+            admin_user = cursor.fetchone()
+            if not admin_user:
+                admin_pass_hash = hash_password("Admin@PixelBoost2026!")
+                cursor.execute("""
+                    INSERT INTO users (email, password_hash, name, company, role, status, credits_limit, credits_used)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    "admin@pixelboost.in",
+                    admin_pass_hash,
+                    "CK Admin",
+                    "PixelBoost Agency",
+                    "admin",
+                    "active",
+                    999999,
+                    0
+                ))
             conn.commit()
 
-    def insert_or_update_lead(self, lead_data: Dict[str, Any]) -> tuple[bool, int]:
+    # =========================================================================
+    # User Management (Multi-Tenancy & Auth)
+    # =========================================================================
+    def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE LOWER(email) = LOWER(?)", (email.strip(),))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def create_user(
+        self,
+        email: str,
+        password: str,
+        name: str,
+        company: str = "",
+        role: str = "client",
+        credits_limit: int = 1000
+    ) -> tuple[bool, str, Optional[int]]:
+        """Create a new customer or admin user. Returns (success, message, user_id)."""
+        clean_email = email.strip().lower()
+        if not clean_email or "@" not in clean_email:
+            return False, "Invalid email address format", None
+        
+        if len(password) < 6:
+            return False, "Password must be at least 6 characters", None
+
+        existing = self.get_user_by_email(clean_email)
+        if existing:
+            return False, f"User with email '{clean_email}' already exists", None
+
+        p_hash = hash_password(password)
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO users (email, password_hash, name, company, role, status, credits_limit, credits_used)
+                VALUES (?, ?, ?, ?, ?, 'active', ?, 0)
+            """, (clean_email, p_hash, name.strip(), company.strip(), role, credits_limit))
+            conn.commit()
+            return True, "User created successfully", cursor.lastrowid
+
+    def get_all_users(self) -> List[Dict[str, Any]]:
+        """List all users for Master Admin dashboard with their lead counts."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    u.id, u.email, u.name, u.company, u.role, u.status,
+                    u.credits_limit, u.credits_used, u.created_at, u.updated_at,
+                    COUNT(l.id) as actual_leads_count
+                FROM users u
+                LEFT JOIN leads l ON u.id = l.user_id
+                GROUP BY u.id
+                ORDER BY u.created_at DESC
+            """)
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    def update_user(self, user_id: int, updates: Dict[str, Any]) -> bool:
+        """Update user profile, status, credits quota, or password."""
+        allowed = {"name", "company", "status", "credits_limit", "role"}
+        fields = [f"{k} = ?" for k in updates if k in allowed]
+        values = [updates[k] for k in updates if k in allowed]
+
+        if "password" in updates and updates["password"]:
+            fields.append("password_hash = ?")
+            values.append(hash_password(updates["password"]))
+
+        if not fields:
+            return False
+
+        fields.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(user_id)
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"UPDATE users SET {', '.join(fields)} WHERE id = ?", values)
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def increment_user_credits(self, user_id: int, count: int = 1) -> bool:
+        """Increment user credits used counter."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET credits_used = credits_used + ? WHERE id = ?", (count, user_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_user(self, user_id: int) -> bool:
+        """Delete customer and their isolated leads."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM leads WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_admin_stats(self) -> Dict[str, Any]:
+        """Aggregate global stats across all clients for Master Admin."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) as total_users FROM users WHERE role = 'client'")
+            total_clients = cursor.fetchone()["total_users"]
+
+            cursor.execute("SELECT COUNT(*) as active_users FROM users WHERE role = 'client' AND status = 'active'")
+            active_clients = cursor.fetchone()["active_users"]
+
+            cursor.execute("SELECT COUNT(*) as total_leads FROM leads")
+            total_leads = cursor.fetchone()["total_leads"]
+
+            cursor.execute("SELECT SUM(credits_used) as total_credits_consumed FROM users")
+            consumed_row = cursor.fetchone()
+            total_credits_consumed = consumed_row["total_credits_consumed"] if consumed_row["total_credits_consumed"] else 0
+
+            return {
+                "total_clients": total_clients,
+                "active_clients": active_clients,
+                "total_leads": total_leads,
+                "total_credits_consumed": total_credits_consumed
+            }
+
+    # =========================================================================
+    # Multi-Tenant Leads Management
+    # =========================================================================
+    def insert_or_update_lead(self, lead_data: Dict[str, Any], user_id: int = 1) -> tuple[bool, int]:
         """
-        Inserts a lead or skips/updates if clean_phone already exists.
+        Inserts a lead or skips/updates if clean_phone already exists for this tenant.
         Returns (is_new: bool, lead_id: int).
         """
         phone = lead_data.get("phone", "")
@@ -71,16 +250,16 @@ class Database:
         with self.get_connection() as conn:
             cursor = conn.cursor()
 
-            # Check if exists by phone if phone is available, or by name + address
+            # Check if exists for this tenant
             existing = None
             if cleaned_phone:
-                cursor.execute("SELECT id FROM leads WHERE clean_phone = ?", (cleaned_phone,))
+                cursor.execute("SELECT id FROM leads WHERE clean_phone = ? AND user_id = ?", (cleaned_phone, user_id))
                 existing = cursor.fetchone()
             
             if not existing and name and lead_data.get("address"):
                 cursor.execute(
-                    "SELECT id FROM leads WHERE LOWER(name) = LOWER(?) AND LOWER(address) = LOWER(?)",
-                    (name, lead_data.get("address", "").strip())
+                    "SELECT id FROM leads WHERE LOWER(name) = LOWER(?) AND LOWER(address) = LOWER(?) AND user_id = ?",
+                    (name, lead_data.get("address", "").strip(), user_id)
                 )
                 existing = cursor.fetchone()
 
@@ -109,11 +288,12 @@ class Database:
             else:
                 cursor.execute("""
                     INSERT INTO leads (
-                        name, phone, clean_phone, address, city, category,
+                        user_id, name, phone, clean_phone, address, city, category,
                         rating, reviews_count, website, instagram, maps_url, query,
                         call_status, call_notes, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, (
+                    user_id,
                     name,
                     phone,
                     cleaned_phone,
@@ -130,10 +310,13 @@ class Database:
                     lead_data.get("call_notes", "")
                 ))
                 conn.commit()
+                # Deduct / increment user credits
+                self.increment_user_credits(user_id, 1)
                 return True, cursor.lastrowid
 
     def get_leads(
         self,
+        user_id: Optional[int] = None,
         search: str = "",
         status: str = "",
         category: str = "",
@@ -149,6 +332,10 @@ class Database:
             cursor = conn.cursor()
             query = "SELECT * FROM leads WHERE 1=1"
             params: List[Any] = []
+
+            if user_id is not None:
+                query += " AND user_id = ?"
+                params.append(user_id)
 
             if search:
                 query += " AND (name LIKE ? OR phone LIKE ? OR address LIKE ? OR city LIKE ? OR call_notes LIKE ?)"
@@ -187,14 +374,17 @@ class Database:
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
 
-    def get_lead_by_id(self, lead_id: int) -> Optional[Dict[str, Any]]:
+    def get_lead_by_id(self, lead_id: int, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM leads WHERE id = ?", (lead_id,))
+            if user_id is not None:
+                cursor.execute("SELECT * FROM leads WHERE id = ? AND user_id = ?", (lead_id, user_id))
+            else:
+                cursor.execute("SELECT * FROM leads WHERE id = ?", (lead_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
-    def update_lead(self, lead_id: int, updates: Dict[str, Any]) -> bool:
+    def update_lead(self, lead_id: int, updates: Dict[str, Any], user_id: Optional[int] = None) -> bool:
         allowed = {"name", "phone", "address", "city", "category", "website", "instagram", "call_status", "call_notes"}
         fields = [f"{k} = ?" for k in updates if k in allowed]
         if not fields:
@@ -208,50 +398,78 @@ class Database:
             values.append(clean_phone(updates["phone"]))
 
         values.append(lead_id)
+        where_clause = "WHERE id = ?"
+        if user_id is not None:
+            where_clause += " AND user_id = ?"
+            values.append(user_id)
 
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(f"UPDATE leads SET {', '.join(fields)} WHERE id = ?", values)
+            cursor.execute(f"UPDATE leads SET {', '.join(fields)} {where_clause}", values)
             conn.commit()
             return cursor.rowcount > 0
 
-    def delete_lead(self, lead_id: int) -> bool:
+    def delete_lead(self, lead_id: int, user_id: Optional[int] = None) -> bool:
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM leads WHERE id = ?", (lead_id,))
+            if user_id is not None:
+                cursor.execute("DELETE FROM leads WHERE id = ? AND user_id = ?", (lead_id, user_id))
+            else:
+                cursor.execute("DELETE FROM leads WHERE id = ?", (lead_id,))
             conn.commit()
             return cursor.rowcount > 0
 
-    def bulk_delete(self, lead_ids: List[int]) -> int:
+    def bulk_delete(self, lead_ids: List[int], user_id: Optional[int] = None) -> int:
         if not lead_ids:
             return 0
         with self.get_connection() as conn:
             cursor = conn.cursor()
             placeholders = ",".join("?" for _ in lead_ids)
-            cursor.execute(f"DELETE FROM leads WHERE id IN ({placeholders})", lead_ids)
+            if user_id is not None:
+                cursor.execute(f"DELETE FROM leads WHERE id IN ({placeholders}) AND user_id = ?", lead_ids + [user_id])
+            else:
+                cursor.execute(f"DELETE FROM leads WHERE id IN ({placeholders})", lead_ids)
             conn.commit()
             return cursor.rowcount
 
-    def clear_all_leads(self) -> int:
+    def clear_all_leads(self, user_id: Optional[int] = None) -> int:
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM leads")
+            if user_id is not None:
+                cursor.execute("DELETE FROM leads WHERE user_id = ?", (user_id,))
+            else:
+                cursor.execute("DELETE FROM leads")
             conn.commit()
             return cursor.rowcount
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self, user_id: Optional[int] = None) -> Dict[str, Any]:
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) as total FROM leads")
+            where_clause = ""
+            params = []
+            if user_id is not None:
+                where_clause = "WHERE user_id = ?"
+                params = [user_id]
+
+            cursor.execute(f"SELECT COUNT(*) as total FROM leads {where_clause}", params)
             total = cursor.fetchone()["total"]
 
-            cursor.execute("SELECT COUNT(*) as with_phone FROM leads WHERE clean_phone != '' AND clean_phone IS NOT NULL")
+            phone_where = "WHERE clean_phone != '' AND clean_phone IS NOT NULL"
+            if user_id is not None:
+                phone_where += " AND user_id = ?"
+            cursor.execute(f"SELECT COUNT(*) as with_phone FROM leads {phone_where}", params)
             with_phone = cursor.fetchone()["with_phone"]
 
-            cursor.execute("SELECT call_status, COUNT(*) as count FROM leads GROUP BY call_status")
+            status_where = ""
+            if user_id is not None:
+                status_where = "WHERE user_id = ?"
+            cursor.execute(f"SELECT call_status, COUNT(*) as count FROM leads {status_where} GROUP BY call_status", params)
             status_counts = {row["call_status"]: row["count"] for row in cursor.fetchall()}
 
-            cursor.execute("SELECT COUNT(DISTINCT query) as total_searches FROM leads WHERE query != ''")
+            search_where = "WHERE query != ''"
+            if user_id is not None:
+                search_where += " AND user_id = ?"
+            cursor.execute(f"SELECT COUNT(DISTINCT query) as total_searches FROM leads {search_where}", params)
             total_searches = cursor.fetchone()["total_searches"]
 
             return {
@@ -262,10 +480,15 @@ class Database:
                 "total_searches": total_searches
             }
 
-    def get_unique_areas(self) -> List[str]:
+    def get_unique_areas(self, user_id: Optional[int] = None) -> List[str]:
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT DISTINCT city FROM leads WHERE city != '' AND city IS NOT NULL ORDER BY city ASC")
+            where_clause = "WHERE city != '' AND city IS NOT NULL"
+            params = []
+            if user_id is not None:
+                where_clause += " AND user_id = ?"
+                params = [user_id]
+            cursor.execute(f"SELECT DISTINCT city FROM leads {where_clause} ORDER BY city ASC", params)
             cities = [row["city"] for row in cursor.fetchall()]
             return cities
 

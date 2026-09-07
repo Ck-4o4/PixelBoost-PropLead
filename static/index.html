@@ -48,7 +48,34 @@
           </svg>
           <span>Export & Import</span>
         </button>
+        <!-- Master Admin Tab (Only for Super Admin) -->
+        <button class="nav-item hidden" data-tab="admin" id="nav-admin">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span>Master Admin</span>
+          <span class="admin-shield-badge">Admin</span>
+        </button>
       </nav>
+
+      <!-- User Account & Tenant Profile Card -->
+      <div class="user-profile-card">
+        <div class="user-avatar-circle" id="user-avatar-initials">CK</div>
+        <div class="user-meta-box">
+          <div class="user-meta-name" id="user-display-name">CK Admin</div>
+          <div class="user-meta-email" id="user-display-email">admin@pixelboost.in</div>
+        </div>
+        <button class="btn-logout" id="btn-logout" title="Sign Out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
+      </div>
 
       <div class="sidebar-footer">
         <div class="made-by-card">
@@ -60,7 +87,7 @@
         </div>
         <div class="system-status">
           <span class="live-dot"></span>
-          <span>Offline Database Active</span>
+          <span id="tenant-status-label">Offline Database Active</span>
         </div>
       </div>
     </aside>
@@ -70,7 +97,11 @@
       <!-- Top Header Stats Bar -->
       <header class="top-header">
         <div class="header-title-box">
-          <div class="badge-pill">🇮🇳 India Real Estate Edition</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="badge-pill">🇮🇳 India Real Estate Edition</div>
+            <div class="tenant-badge-pill" id="header-tenant-pill">🏢 PixelBoost Agency</div>
+            <div class="credits-counter-pill" id="header-credits-pill">🎯 Credits: Unlimited</div>
+          </div>
           <h1 id="page-title">Lead Generation Studio</h1>
           <p id="page-subtitle">Extract verified phone numbers, WhatsApp contacts & local real estate brokers directly from Google Maps</p>
         </div>
@@ -118,36 +149,37 @@
                   <select id="search-category" class="select-field">
                     <optgroup label="🏠 Real Estate & Property">
                       <option value="Real Estate Agents" selected>🏡 Real Estate Brokers & Channel Partners (CPs)</option>
-                      <option value="Property Dealers">🤝 Local Property Dealers & Consultants</option>
-                      <option value="Luxury Real Estate Brokers">💎 Luxury Villa & Penthouse Brokers</option>
-                      <option value="Rental Property Agents">🔑 Rental & Flat Leasing Agents</option>
-                      <option value="PG and Hostel Operators">🛏️ Co-living & PG Operators</option>
+                      <option value="Builders and Developers">🏗️ Builders & Real Estate Developers</option>
+                      <option value="Commercial Real Estate Agency">🏢 Commercial Property Brokers & Consultants</option>
+                      <option value="Interior Designers">🎨 Interior Designers & Architects</option>
+                      <option value="Civil Contractors">🔨 Civil Engineers & Building Contractors</option>
+                      <option value="Home Loan Agents">💳 Home Loan Agents & DSAs</option>
+                      <option value="Property Lawyers">⚖️ Property Advocates & Title Lawyers</option>
+                      <option value="Property Valuers">📋 Approved Property Valuers & Surveyors</option>
                     </optgroup>
-                    <optgroup label="🏗️ Builders, Developers & Construction">
-                      <option value="Real Estate Builders">🏗️ Builders & Real Estate Developers</option>
-                      <option value="Civil Contractors">🔨 Civil Contractors & Construction Companies</option>
-                      <option value="Architects">📐 Architects & Planners</option>
-                      <option value="Interior Designers">🎨 Interior Designers & Contractors</option>
-                      <option value="Building Material Suppliers">🧱 Building Material & Hardware Traders</option>
+                    <optgroup label="🏢 High-Ticket Services & Finance">
+                      <option value="Chartered Accountants">📊 Chartered Accountants (CAs) & Tax Advisors</option>
+                      <option value="Business Consultants">💼 Business Management Consultants</option>
+                      <option value="Financial Advisors">📈 Wealth Managers & Mutual Fund Distributors</option>
+                      <option value="Insurance Agency">🛡️ General & Life Insurance Brokers</option>
                     </optgroup>
-                    <optgroup label="🏬 Commercial, Land & Industrial">
-                      <option value="Commercial Property Consultants">🏬 Commercial Office & Retail Consultants</option>
-                      <option value="Warehouse and Industrial Sheds">🏭 Warehouse & Industrial Land Brokers</option>
-                      <option value="Plot and Farmhouse Dealers">🌳 NA Plot, Land & Farmhouse Brokers</option>
-                      <option value="Coworking Spaces">💻 Co-working Spaces & Business Centers</option>
+                    <optgroup label="🏥 Healthcare & Wellness">
+                      <option value="Doctors and Clinics">🩺 Specialist Doctors & Multi-Speciality Clinics</option>
+                      <option value="Dentists">🦷 Dental Surgeons & Implant Clinics</option>
+                      <option value="Hospitals">🏥 Private Hospitals & Nursing Homes</option>
+                      <option value="Diagnostic Centers">🔬 Pathology Labs & MRI Centers</option>
+                      <option value="Pharmaceutical Manufacturers">💊 Pharma Manufacturers & Stockists</option>
                     </optgroup>
-                    <optgroup label="💳 Finance, Legal & DSA">
-                      <option value="Home Loan DSA Agents">💳 Home Loan & Mortgage DSA Agents</option>
-                      <option value="Property Lawyers">⚖️ Property Lawyers & RERA Advisors</option>
-                      <option value="Property Valuation Experts">📊 Approved Property Valuers</option>
+                    <optgroup label="🚗 Auto, Retail & Hospitality">
+                      <option value="Car Dealers">🚘 Used & Luxury Car Dealerships</option>
+                      <option value="Jewellery Showrooms">💎 Gold & Diamond Jewellery Showrooms</option>
+                      <option value="Hotels and Resorts">🏨 Boutique Hotels & Luxury Resorts</option>
+                      <option value="Banquet Halls">🎉 Banquet Halls & Wedding Lawns</option>
                     </optgroup>
-                    <optgroup label="💼 High Net Worth / B2B Calling Targets">
-                      <option value="Chartered Accountants">💼 Chartered Accountants & CA Firms (HNIs)</option>
-                      <option value="Doctors and Clinics">🩺 Doctors & Clinic Owners (HNI Investors)</option>
-                      <option value="Pharmaceutical Companies">💊 Pharma Manufacturers & Dealers</option>
-                      <option value="Automobile Showrooms">🚗 Car Showroom Dealerships</option>
-                      <option value="Hotel and Resorts">🏨 Hotels, Resorts & Banquets</option>
-                      <option value="Jewellers and Gold Traders">💍 Jewellers & Bullion Merchants</option>
+                    <optgroup label="🎓 Education & Tech">
+                      <option value="Coaching Institutes">📚 IIT/NEET & UPSC Coaching Centers</option>
+                      <option value="Overseas Education Consultants">✈️ Study Visa & Immigration Consultants</option>
+                      <option value="Software Companies">💻 IT Services & Software Agencies</option>
                     </optgroup>
                   </select>
                 </div>
@@ -155,115 +187,114 @@
 
               <!-- Custom Keyword (Hidden by default) -->
               <div class="form-row hidden" id="group-custom-keyword">
-                <label class="form-label">Custom Search Keywords</label>
+                <label class="form-label">Custom Search Keyword</label>
                 <div class="input-wrapper">
-                  <input type="text" id="search-query" class="text-field" placeholder="e.g. Pharma Companies, Textile Traders, Solar Panels..." value="Real Estate Agents">
+                  <input type="text" id="custom-query" class="text-field" placeholder="e.g. Solar panel installers, Organic food exporters...">
                 </div>
               </div>
 
-              <!-- Location Grid: City & Locality -->
+              <!-- City and Locality 2-Column Row -->
               <div class="form-grid-2">
                 <div class="form-row">
                   <label class="form-label">City / Region</label>
-                  <select id="city-preset-select" class="select-field">
-                    <optgroup label="Tier 1 — Metros">
-                      <option value="Mumbai">Mumbai (MMR)</option>
-                      <option value="Delhi NCR">Delhi NCR (Gurgaon / Noida)</option>
-                      <option value="Bangalore">Bangalore (Bengaluru)</option>
+                  <select id="preset-city-select" class="select-field">
+                    <optgroup label="🏙️ Top Indian Metros">
                       <option value="Ahmedabad" selected>Ahmedabad</option>
-                      <option value="Pune">Pune</option>
+                      <option value="Mumbai">Mumbai</option>
+                      <option value="Delhi NCR">Delhi NCR</option>
+                      <option value="Bengaluru">Bengaluru</option>
                       <option value="Hyderabad">Hyderabad</option>
+                      <option value="Pune">Pune</option>
                       <option value="Chennai">Chennai</option>
                       <option value="Kolkata">Kolkata</option>
                     </optgroup>
-                    <optgroup label="Tier 2 — Growth Hubs">
+                    <optgroup label="🚀 High-Growth Tier-2 Hubs">
                       <option value="Surat">Surat</option>
-                      <option value="Jaipur">Jaipur</option>
-                      <option value="Lucknow">Lucknow</option>
-                      <option value="Chandigarh Tricity">Chandigarh / Mohali</option>
-                      <option value="Indore">Indore</option>
-                      <option value="Goa">Goa</option>
-                      <option value="Kochi">Kochi</option>
-                      <option value="Coimbatore">Coimbatore</option>
-                      <option value="Nagpur">Nagpur</option>
                       <option value="Vadodara">Vadodara</option>
+                      <option value="Rajkot">Rajkot</option>
+                      <option value="Jaipur">Jaipur</option>
+                      <option value="Indore">Indore</option>
+                      <option value="Lucknow">Lucknow</option>
+                      <option value="Chandigarh">Chandigarh</option>
+                      <option value="Nagpur">Nagpur</option>
+                      <option value="Coimbatore">Coimbatore</option>
+                      <option value="Kochi">Kochi</option>
                     </optgroup>
-                    <option value="custom">✏️ Other City...</option>
                   </select>
                 </div>
 
                 <div class="form-row">
                   <label class="form-label">Specific Area / Locality</label>
-                  <select id="area-preset-select" class="select-field">
-                    <!-- Populated dynamically -->
+                  <select id="preset-locality-select" class="select-field">
+                    <!-- Populated dynamically via JS -->
                   </select>
-                  <input type="hidden" id="search-city" value="SG Highway, Ahmedabad">
                 </div>
               </div>
 
               <!-- Quick Locality Chips -->
-              <div class="form-row">
+              <div class="form-row" id="chips-area-group">
                 <div class="chip-label-row">
                   <span class="sub-label">Popular Localities:</span>
                   <span class="text-dim-xs">Click to select</span>
                 </div>
-                <div class="chips-container" id="area-chips-container">
-                  <!-- Chips injected dynamically -->
+                <div class="chips-container" id="quick-locality-chips"></div>
+              </div>
+
+              <!-- Max Results Volume Slider -->
+              <div class="form-row">
+                <div class="slider-box">
+                  <div class="slider-header">
+                    <span class="form-label">Extraction Target</span>
+                    <span class="slider-pill" id="target-count-badge">25 Leads</span>
+                  </div>
+                  <input type="range" id="max-results" min="5" max="100" value="25" step="5" class="range-slider">
                 </div>
               </div>
 
-              <!-- Volume Slider & Action -->
-              <div class="slider-box">
-                <div class="slider-header">
-                  <span class="form-label">Extraction Target</span>
-                  <span id="max-results-val" class="slider-pill">25 Leads</span>
-                </div>
-                <input type="range" id="max-results" min="5" max="100" step="5" value="25" class="range-slider">
-              </div>
+              <!-- Start Button -->
+              <button type="submit" class="btn-hero btn-extract" id="btn-start-scrape">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Start Extracting Leads</span>
+              </button>
 
-              <div class="action-btn-row">
-                <button type="submit" class="btn-hero btn-extract" id="btn-start-scrape">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                  </svg>
-                  <span>Start Extracting Leads</span>
-                </button>
-                <button type="button" class="btn-hero btn-stop hidden" id="btn-stop-scrape">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <rect x="6" y="6" width="12" height="12"></rect>
-                  </svg>
-                  <span>Stop Extraction</span>
-                </button>
-              </div>
+              <!-- Stop Button -->
+              <button type="button" class="btn-hero btn-stop hidden" id="btn-stop-scrape">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="6" width="12" height="12"></rect>
+                </svg>
+                <span>Stop Extraction</span>
+              </button>
             </form>
 
-            <!-- Live Progress Bar -->
+            <!-- Progress Bar -->
             <div class="progress-box hidden" id="progress-container">
               <div class="progress-info">
-                <span id="progress-status-text">Connecting to Google Maps...</span>
-                <span id="progress-pct" class="font-mono">0%</span>
+                <span id="progress-status-text">Initializing Browser...</span>
+                <span id="progress-percent" class="font-mono">0%</span>
               </div>
               <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                <div class="progress-bar-fill" id="progress-bar"></div>
               </div>
             </div>
 
-            <!-- Terminal Output Activity -->
+            <!-- Terminal Console Logs -->
             <div class="console-box">
               <div class="console-top">
                 <div class="console-lights">
                   <span></span><span></span><span></span>
                 </div>
                 <span class="console-title">Live Engine Log</span>
-                <button class="console-clear" id="btn-clear-logs">Clear</button>
+                <button type="button" class="console-clear" id="btn-clear-logs">Clear</button>
               </div>
-              <div class="console-body" id="log-console">
-                <div class="log-line text-muted">[System] Engine ready. Select parameters above to start lead extraction.</div>
+              <div class="console-body" id="console-logs">
+                <div class="log-line text-dim">Engine initialized and ready to capture verified Indian business contacts.</div>
               </div>
             </div>
           </div>
 
-          <!-- Live Discovered Stream -->
+          <!-- Live Feed Stream Card -->
           <div class="card stream-card">
             <div class="card-top-bar">
               <div class="card-heading">
@@ -273,15 +304,15 @@
                   <p>Real-time Google Maps feed</p>
                 </div>
               </div>
-              <span class="live-counter" id="stream-count">0 Extracted</span>
+              <span class="live-counter" id="live-extracted-counter">0 Extracted</span>
             </div>
-            
+
             <div class="stream-scroll-box" id="live-leads-list">
-              <div class="stream-empty">
+              <div class="stream-empty" id="stream-placeholder">
                 <div class="empty-icon-circle">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10"></circle>
-                    <path d="M12 8v4l3 3"></path>
+                    <polyline points="12 6 12 12 16 14"></polyline>
                   </svg>
                 </div>
                 <h4>No Leads in Current Session</h4>
@@ -292,44 +323,43 @@
         </div>
       </section>
 
-      <!-- TAB 2: CALLING LEADS CRM -->
+      <!-- TAB 2: CRM PIPELINE -->
       <section class="tab-pane" id="tab-crm">
         <div class="card crm-card">
-          <!-- CRM Control Bar -->
+          <!-- CRM Toolbar -->
           <div class="crm-header-toolbar">
             <div class="search-input-box">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" id="crm-search" placeholder="Search by name, phone, address, notes...">
+              <input type="text" id="crm-search" placeholder="Search by name, phone, address, note">
             </div>
 
             <div class="filter-controls">
               <select id="filter-status" class="filter-select">
                 <option value="">All Statuses</option>
-                <option value="New">🟢 New (Uncalled)</option>
+                <option value="New">🟢 New</option>
                 <option value="Interested">⭐ Interested / Hot</option>
-                <option value="Follow-up">📅 Follow-up / Callback</option>
-                <option value="Ring No Response">📵 Ring No Response</option>
+                <option value="Follow-up">📅 Follow-up</option>
+                <option value="RNR">📵 Ringing / No Answer</option>
                 <option value="Not Interested">❌ Not Interested</option>
                 <option value="Deal Closed">🏆 Deal Closed</option>
               </select>
 
               <select id="filter-area" class="filter-select">
                 <option value="">📍 All Areas / Cities</option>
-                <!-- Populated dynamically -->
               </select>
 
               <select id="filter-phone" class="filter-select">
-                <option value="">All Contacts</option>
-                <option value="true" selected>📞 Has Phone Number</option>
-                <option value="false">No Phone Number</option>
+                <option value="">📞 Has Phone Number</option>
+                <option value="true">With Phone Only</option>
+                <option value="false">Without Phone</option>
               </select>
 
               <button class="btn-control" id="btn-refresh-leads">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M23 4v6h-6"></path>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"></polyline>
                   <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
                 </svg>
                 <span>Refresh</span>
@@ -337,51 +367,57 @@
             </div>
           </div>
 
-          <!-- Bulk Actions Bar -->
+          <!-- Bulk Selection Actions Bar -->
           <div class="bulk-bar hidden" id="bulk-actions-bar">
-            <span id="selected-count-text">0 leads selected</span>
+            <span><strong id="selected-count">0</strong> leads selected</span>
             <div class="bulk-actions-right">
               <select id="bulk-status-select" class="select-field-sm">
                 <option value="">Set Status...</option>
-                <option value="New">🟢 Set New</option>
-                <option value="Interested">⭐ Set Interested</option>
-                <option value="Follow-up">📅 Set Follow-up</option>
-                <option value="Ring No Response">📵 Set RNR</option>
-                <option value="Not Interested">❌ Set Not Interested</option>
-                <option value="Deal Closed">🏆 Set Deal Closed</option>
+                <option value="New">New</option>
+                <option value="Interested">Interested / Hot</option>
+                <option value="Follow-up">Follow-up</option>
+                <option value="RNR">Ringing / No Answer</option>
+                <option value="Not Interested">Not Interested</option>
+                <option value="Deal Closed">Deal Closed</option>
               </select>
-              <button class="btn-sm btn-primary-sm" id="btn-bulk-status">Apply Status</button>
-              <button class="btn-sm btn-danger-sm" id="btn-bulk-delete">Delete</button>
+              <button class="btn-sm btn-primary-sm" id="btn-apply-bulk-status">Apply Status</button>
+              <button class="btn-sm btn-danger-sm" id="btn-bulk-delete">Delete Selected</button>
             </div>
           </div>
 
-          <!-- Leads Table -->
+          <!-- Table Container -->
           <div class="crm-table-container">
             <table class="crm-table" id="leads-table">
               <thead>
                 <tr>
-                  <th width="38"><input type="checkbox" id="select-all-leads"></th>
+                  <th style="width: 38px;">
+                    <input type="checkbox" id="select-all-leads">
+                  </th>
                   <th>Business / Contact Name</th>
                   <th>Calling & WhatsApp</th>
                   <th>Locality & Address</th>
                   <th>Rating</th>
                   <th>Calling Pipeline</th>
                   <th>Staff Notes / Comments</th>
-                  <th width="80">Actions</th>
+                  <th style="text-align: right;">Actions</th>
                 </tr>
               </thead>
               <tbody id="leads-table-body">
-                <!-- Injected via JavaScript -->
+                <tr>
+                  <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-dim);">
+                    Loading verified leads...
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
 
           <!-- Table Footer -->
           <div class="table-footer-bar">
-            <span id="table-summary-text">Showing 0 leads</span>
+            <span id="crm-footer-stats">Showing 0 of 0 leads</span>
             <div class="footer-export-btns">
-              <a href="/api/export/excel" class="btn-text-link" id="quick-export-excel">📥 Download Excel (.xlsx)</a>
-              <a href="/api/export/csv" class="btn-text-link" id="quick-export-csv">📄 Download CSV</a>
+              <a href="/api/export/csv" target="_blank" class="btn-text-link" id="crm-quick-csv">Download CSV</a>
+              <a href="/api/export/excel" target="_blank" class="btn-text-link" id="crm-quick-excel">Download Excel</a>
             </div>
           </div>
         </div>
@@ -390,49 +426,35 @@
       <!-- TAB 3: EXPORT & IMPORT -->
       <section class="tab-pane" id="tab-export">
         <div class="export-layout">
-          <!-- Excel / CSV Export Card -->
+          <!-- Formatted Export Card -->
           <div class="card export-card">
             <div class="card-top-bar">
               <div class="card-heading">
-                <span class="card-icon-tag green">📥</span>
+                <span class="card-icon-tag">📥</span>
                 <div>
-                  <h3>Telecaller Sheets Export</h3>
-                  <p>Download formatted lists for your calling team</p>
+                  <h3>Telecalling Sheets</h3>
+                  <p>Export formatted sheets for callers</p>
                 </div>
               </div>
             </div>
-            
+
             <div class="export-formats-grid">
               <div class="export-format-item">
                 <div class="format-icon excel-icon">XLSX</div>
                 <div class="format-desc">
-                  <h4>Microsoft Excel (.xlsx)</h4>
-                  <p>Formatted spreadsheet with bold header columns, formatted phone numbers & status tags ready for calling staff.</p>
+                  <h4>Microsoft Excel Spreadsheet</h4>
+                  <p>Formatted calling sheet with clickable WhatsApp & dial links.</p>
                 </div>
-                <a href="/api/export/excel" class="btn-download" download>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                  </svg>
-                  <span>Download Excel</span>
-                </a>
+                <a href="/api/export/excel" target="_blank" class="btn-download" id="btn-export-excel-main">Download Excel</a>
               </div>
 
               <div class="export-format-item">
                 <div class="format-icon csv-icon">CSV</div>
                 <div class="format-desc">
-                  <h4>Standard CSV (.csv)</h4>
-                  <p>Universal CSV file compatible with Google Sheets, auto-dialers, Zoho, Salesforce, or LeadSquared CRM.</p>
+                  <h4>Standard CSV Export</h4>
+                  <p>Compatible with all dialers, Google Sheets, and CRM tools.</p>
                 </div>
-                <a href="/api/export/csv" class="btn-download secondary" download>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                  </svg>
-                  <span>Download CSV</span>
-                </a>
+                <a href="/api/export/csv" target="_blank" class="btn-download secondary" id="btn-export-csv-main">Download CSV</a>
               </div>
             </div>
           </div>
@@ -471,6 +493,72 @@
         </div>
       </section>
 
+      <!-- TAB 4: MASTER ADMIN DASHBOARD (CK ONLY) -->
+      <section class="tab-pane" id="tab-admin">
+        <div class="card admin-master-card">
+          <div class="card-top-bar">
+            <div class="card-heading">
+              <span class="card-icon-tag" style="background: #fef3c7; color: #b45309;">👑</span>
+              <div>
+                <h3>Master Admin Management Hub</h3>
+                <p>Manage customer tenants, allocate lead quotas, and oversee platform usage</p>
+              </div>
+            </div>
+            <button class="btn-hero btn-extract" style="width: auto; padding: 8px 16px; font-size: 0.85rem;" id="btn-open-add-client-modal">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>+ Add New Customer Account</span>
+            </button>
+          </div>
+
+          <!-- Master Admin Analytics Grid -->
+          <div class="admin-stats-grid">
+            <div class="admin-stat-box">
+              <span class="admin-stat-label">Total Customer Accounts</span>
+              <span class="admin-stat-num" id="admin-stat-clients">0</span>
+            </div>
+            <div class="admin-stat-box highlight-active">
+              <span class="admin-stat-label">Active Paying Clients</span>
+              <span class="admin-stat-num text-emerald" id="admin-stat-active-clients">0</span>
+            </div>
+            <div class="admin-stat-box">
+              <span class="admin-stat-label">Total Platform Leads</span>
+              <span class="admin-stat-num text-amber" id="admin-stat-total-leads">0</span>
+            </div>
+            <div class="admin-stat-box">
+              <span class="admin-stat-label">Total Credits Consumed</span>
+              <span class="admin-stat-num" id="admin-stat-credits-consumed">0</span>
+            </div>
+          </div>
+
+          <!-- Customers Table -->
+          <div class="crm-table-container mt-4">
+            <table class="crm-table" id="admin-users-table">
+              <thead>
+                <tr>
+                  <th>Client / Company Name</th>
+                  <th>Email Address</th>
+                  <th>Role</th>
+                  <th>Lead Quota & Usage</th>
+                  <th>Leads in DB</th>
+                  <th>Account Status</th>
+                  <th style="text-align: right;">Manage Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-table-body">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-dim);">
+                    Loading customer accounts...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <!-- Attribution Footer -->
       <footer class="app-footer">
         <div class="footer-attribution">
@@ -480,6 +568,70 @@
         </div>
       </footer>
     </main>
+  </div>
+
+  <!-- Modal: Create / Edit Customer Account -->
+  <div class="modal-overlay hidden" id="client-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-client-title">Add New Customer Tenant</h3>
+        <button class="modal-close" id="btn-close-client-modal">&times;</button>
+      </div>
+      <form id="client-form" class="clean-form" style="margin-top: 14px;">
+        <input type="hidden" id="modal-client-id" value="">
+        
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label class="form-label" for="client-name">Contact Person Name</label>
+            <input type="text" id="client-name" class="text-field" placeholder="e.g. Rahul Sharma" required>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="client-company">Company / Agency Name</label>
+            <input type="text" id="client-company" class="text-field" placeholder="e.g. Skyline Realty Group">
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label class="form-label" for="client-email">Login Email Address</label>
+            <input type="email" id="client-email" class="text-field" placeholder="client@realty.com" required>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="client-password">Account Password</label>
+            <input type="text" id="client-password" class="text-field" placeholder="Min 6 characters">
+            <span class="text-dim-xs" id="client-password-help">Set initial login password</span>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label class="form-label" for="client-credits">Lead Extraction Credit Quota</label>
+            <select id="client-credits" class="select-field">
+              <option value="500">Starter Pack (500 Leads)</option>
+              <option value="1000" selected>Growth Pack (1,000 Leads)</option>
+              <option value="2500">Pro Agency (2,500 Leads)</option>
+              <option value="5000">Enterprise (5,000 Leads)</option>
+              <option value="10000">Scale Pack (10,000 Leads)</option>
+              <option value="999999">Unlimited Master Pack</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="client-role">Role & Permissions</label>
+            <select id="client-role" class="select-field">
+              <option value="client" selected>Customer / Client</option>
+              <option value="admin">Master Administrator</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer mt-4">
+          <button type="button" class="btn-control" id="btn-cancel-client-modal">Cancel</button>
+          <button type="submit" class="btn-hero btn-extract" style="width: auto; padding: 10px 22px;" id="btn-save-client">
+            <span>Save Customer Account</span>
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Toast Notification Container -->
