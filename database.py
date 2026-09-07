@@ -310,8 +310,9 @@ class Database:
                     lead_data.get("call_notes", "")
                 ))
                 conn.commit()
-                # Deduct / increment user credits
-                self.increment_user_credits(user_id, 1)
+                # Deduct / increment user credits if authenticated user
+                if user_id and user_id > 0:
+                    self.increment_user_credits(user_id, 1)
                 return True, cursor.lastrowid
 
     def get_leads(

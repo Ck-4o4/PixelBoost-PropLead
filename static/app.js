@@ -97,8 +97,9 @@ function getAuthHeaders(extra = {}) {
 async function checkAuthSession() {
   const token = getAuthToken();
   if (!token) {
-    window.location.href = '/login.html';
-    return false;
+    currentUser = null;
+    updateUserProfileUI();
+    return true; // Allow guest mode with 5 free leads!
   }
 
   try {
@@ -109,8 +110,9 @@ async function checkAuthSession() {
     if (!res.ok) {
       localStorage.removeItem('pixelboost_token');
       localStorage.removeItem('pixelboost_user');
-      window.location.href = '/login.html';
-      return false;
+      currentUser = null;
+      updateUserProfileUI();
+      return true; // Allow guest mode
     }
 
     currentUser = await res.json();
@@ -118,34 +120,77 @@ async function checkAuthSession() {
     updateUserProfileUI();
     return true;
   } catch (err) {
-    localStorage.removeItem('pixelboost_token');
-    window.location.href = '/login.html';
-    return false;
+    currentUser = null;
+    updateUserProfileUI();
+    return true;
   }
 }
 
 function updateUserProfileUI() {
-  if (!currentUser) return;
-
   // Sidebar profile
   const nameElem = document.getElementById('user-display-name');
   const emailElem = document.getElementById('user-display-email');
   const avatarElem = document.getElementById('user-avatar-initials');
   const navAdmin = document.getElementById('nav-admin');
+  const btnGuestLogin = document.getElementById('btn-guest-login');
+  const btnLogout = document.getElementById('btn-logout');
 
+  // Header tenant pill and credits
+  const tenantPill = document.getElementById('header-tenant-pill');
+  const creditsPill = document.getElementById('header-credits-pill');
+  const maxResults = document.getElementById('max-results');
+  const targetBadge = document.getElementById('target-count-badge');
+  const sliderHelper = document.getElementById('slider-helper-text');
+
+  if (!currentUser) {
+    // Guest Trial Mode
+    if (nameElem) nameElem.textContent = 'Free Guest Trial';
+    if (emailElem) emailElem.textContent = '5 Free Leads Available';
+    if (avatarElem) avatarElem.textContent = '🎁';
+    if (btnGuestLogin) btnGuestLogin.classList.remove('hidden');
+    if (btnLogout) btnLogout.classList.add('hidden');
+    if (navAdmin) navAdmin.classList.add('hidden');
+
+    if (tenantPill) tenantPill.textContent = '🎁 5 Free Leads Trial';
+    if (creditsPill) {
+      creditsPill.textContent = '🎁 Free Trial: 5 Free Leads';
+      creditsPill.style.background = '#e0f2fe';
+      creditsPill.style.color = '#0284c7';
+      creditsPill.style.borderColor = '#bae6fd';
+    }
+
+    if (maxResults) {
+      maxResults.value = 5;
+      maxResults.max = 5;
+    }
+    if (targetBadge) {
+      targetBadge.textContent = '5 Free Leads (Trial)';
+    }
+    if (sliderHelper) {
+      sliderHelper.textContent = '🎁 5 leads free without signup. Upgrade for up to 100+ leads!';
+    }
+    return;
+  }
+
+  // Logged-in Customer or Admin
   if (nameElem) nameElem.textContent = currentUser.name || 'User';
   if (emailElem) emailElem.textContent = currentUser.email || '';
   if (avatarElem) {
     const initials = (currentUser.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     avatarElem.textContent = initials;
   }
-
-  // Header tenant pill and credits
-  const tenantPill = document.getElementById('header-tenant-pill');
-  const creditsPill = document.getElementById('header-credits-pill');
+  if (btnGuestLogin) btnGuestLogin.classList.add('hidden');
+  if (btnLogout) btnLogout.classList.remove('hidden');
 
   if (tenantPill) {
     tenantPill.textContent = currentUser.company ? `🏢 ${currentUser.company}` : `👤 ${currentUser.name}`;
+  }
+
+  if (maxResults) {
+    maxResults.max = 100;
+  }
+  if (sliderHelper) {
+    sliderHelper.textContent = 'Extract up to 100 verified leads in one batch.';
   }
 
   if (creditsPill) {
@@ -157,6 +202,9 @@ function updateUserProfileUI() {
     } else {
       const remaining = Math.max(0, (currentUser.credits_limit || 0) - (currentUser.credits_used || 0));
       creditsPill.textContent = `🎯 Credits: ${remaining.toLocaleString()} / ${(currentUser.credits_limit || 0).toLocaleString()} Remaining`;
+      creditsPill.style.background = '#ecfdf5';
+      creditsPill.style.color = '#059669';
+      creditsPill.style.borderColor = '#a7f3d0';
     }
   }
 
@@ -264,10 +312,14 @@ const clientCredits = document.getElementById('client-credits');
 const clientRole = document.getElementById('client-role');
 const btnSaveClient = document.getElementById('btn-save-client');
 
+// Pricing Modal Elements
+const pricingModal = document.getElementById('pricing-modal');
+const btnClosePricingModal = document.getElementById('btn-close-pricing-modal');
+const btnHeaderUpgrade = document.getElementById('btn-header-upgrade');
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-  const isAuthed = await checkAuthSession();
-  if (!isAuthed) return;
+  await checkAuthSession();
 
   setupNavigation();
   setupScraperModeToggle();
@@ -276,6 +328,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupCrmEvents();
   setupImportEvents();
   setupAdminEvents();
+  setupPricingEvents();
   setupLogoutEvent();
 
   fetchStats();
@@ -291,7 +344,9 @@ function setupLogoutEvent() {
       if (confirm('Are you sure you want to log out?')) {
         localStorage.removeItem('pixelboost_token');
         localStorage.removeItem('pixelboost_user');
-        window.location.href = '/login.html';
+        currentUser = null;
+        updateUserProfileUI();
+        showToast('Logged out successfully', 'info');
       }
     });
   }
@@ -336,6 +391,9 @@ function switchTab(tab) {
   } else if (tab === 'export') {
     pageTitle.textContent = 'Export & Import Calling Sheets';
     pageSubtitle.textContent = 'Download formatted telecalling spreadsheets and merge existing lead lists';
+  } else if (tab === 'pricing') {
+    pageTitle.textContent = 'Plans & Pricing';
+    pageSubtitle.textContent = 'Get verified real estate leads with instant WhatsApp delivery & CRM access';
   } else if (tab === 'admin') {
     pageTitle.textContent = 'Master Admin Management Hub';
     pageSubtitle.textContent = 'Manage customer tenants, allocate lead quotas, and oversee platform usage';
@@ -506,6 +564,16 @@ function handleScrapeEvent(data) {
     fetchStats();
     fetchLeads();
     fetchAreas();
+
+    // If guest user extracted their free leads, show the Pricing Modal!
+    if (!currentUser || (data.scraped_count && data.scraped_count >= 5)) {
+      setTimeout(() => {
+        openPricingModal(
+          "🎉 5 Free Leads Extracted!",
+          "You've experienced real-time lead extraction! Select a plan below to extract up to 100+ leads with direct WhatsApp dialer & CRM export."
+        );
+      }, 900);
+    }
   } else if (data.type === 'error') {
     appendLog(`❌ Error: ${data.message}`, 'error');
     showToast(data.message, 'error');
@@ -1298,3 +1366,73 @@ function showToast(msg, type = 'info') {
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 4000);
 }
+
+// Pricing & Upgrade Modal Functions
+function setupPricingEvents() {
+  if (btnHeaderUpgrade) {
+    btnHeaderUpgrade.addEventListener('click', () => {
+      switchTab('pricing');
+    });
+  }
+
+  if (btnClosePricingModal) {
+    btnClosePricingModal.addEventListener('click', () => {
+      closePricingModal();
+    });
+  }
+
+  if (pricingModal) {
+    pricingModal.addEventListener('click', (e) => {
+      if (e.target === pricingModal) {
+        closePricingModal();
+      }
+    });
+  }
+}
+
+function openPricingModal(customTitle, customSubtitle) {
+  if (!pricingModal) return;
+  const titleEl = document.getElementById('pricing-modal-title');
+  const subEl = document.getElementById('pricing-modal-subtitle');
+  if (titleEl && customTitle) titleEl.textContent = customTitle;
+  if (subEl && customSubtitle) subEl.textContent = customSubtitle;
+  pricingModal.classList.remove('hidden');
+}
+
+function closePricingModal() {
+  if (pricingModal) pricingModal.classList.add('hidden');
+}
+
+function buyPlan(planName, leads, price) {
+  const isCustom = price === 'Custom' || String(price).toLowerCase().includes('custom');
+  const priceText = isCustom ? 'Custom Enterprise Quote' : `₹${price}`;
+  const leadsText = isCustom ? '250+ Custom Leads' : `${leads} Leads`;
+
+  const msg = `Hi CK! I want to activate the *${planName} Plan* (${leadsText} @ ${priceText}) for PixelBoost PropLeadAi.\n\nPlease share payment details / UPI to activate my account.`;
+  const waUrl = `https://wa.me/919999999999?text=${encodeURIComponent(msg)}`;
+
+  showToast(`Opening WhatsApp order for ${planName} Plan (${priceText})...`, 'success');
+  window.open(waUrl, '_blank');
+}
+
+function startFreeTrial() {
+  switchTab('scraper');
+  const maxResults = document.getElementById('max-results');
+  if (maxResults) {
+    maxResults.value = 5;
+    const badge = document.getElementById('target-count-badge');
+    if (badge) badge.textContent = '5 Free Leads (Trial)';
+  }
+  showToast("🎁 Free Trial Active! Choose your target city and click 'Start Extracting 5 Free Leads'.", "info");
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Expose on global window object for HTML inline buttons
+window.app = {
+  buyPlan,
+  startFreeTrial,
+  openPricingModal,
+  closePricingModal,
+  switchTab
+};
+

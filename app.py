@@ -20,7 +20,7 @@ from auth import (
     hash_password
 )
 
-app = FastAPI(title="PixelBoost PropLeadAi SaaS Engine", version="2.0.0")
+app = FastAPI(title="PixelBoost PropLeadAi SaaS Engine", version="2.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,6 +29,113 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# =============================================================================
+# Pricing Plans Matrix (INR)
+# =============================================================================
+OFFICIAL_PLANS = [
+    {
+        "id": "free",
+        "name": "Free Trial",
+        "badge": "🆓 Free",
+        "leads": 5,
+        "price": 0,
+        "price_display": "₹0",
+        "price_per_lead": "Free",
+        "description": "5 free demo leads without signup to test real-time phone & Instagram extraction.",
+        "features": [
+            "5 Verified Real Estate Leads",
+            "Direct Phone & WhatsApp Actions",
+            "Instagram Profile Links",
+            "Live Google Maps Stream",
+            "Instant Test (No Signup)"
+        ],
+        "popular": False,
+        "button_text": "Current Trial (5 Leads)",
+        "is_free": True
+    },
+    {
+        "id": "starter",
+        "name": "Starter",
+        "badge": "🚀 Starter",
+        "leads": 5,
+        "price": 79,
+        "price_display": "₹79",
+        "price_per_lead": "₹15.80 / lead",
+        "description": "Quick verified pack for individual brokers and local real estate consultants.",
+        "features": [
+            "5 Verified Direct Contacts",
+            "Automatic Phone Deduplication",
+            "Direct Dial & 1-Click WhatsApp",
+            "Instagram Handle Discovery",
+            "Saved in Calling CRM Table"
+        ],
+        "popular": False,
+        "button_text": "Buy Starter (₹79)",
+        "is_free": False
+    },
+    {
+        "id": "growth",
+        "name": "Growth",
+        "badge": "📈 Growth",
+        "leads": 40,
+        "price": 499,
+        "price_display": "₹499",
+        "price_per_lead": "₹12.48 / lead",
+        "description": "Perfect for active real estate telecallers covering specific micro-markets.",
+        "features": [
+            "40 High-Intent Verified Leads",
+            "All Indian Cities & Localities",
+            "Excel & CSV Telecalling Sheets",
+            "Calling Pipeline Status Tracking",
+            "Inline Notes Auto-Saving"
+        ],
+        "popular": False,
+        "button_text": "Buy Growth (₹499)",
+        "is_free": False
+    },
+    {
+        "id": "professional",
+        "name": "Professional",
+        "badge": "⭐ Professional",
+        "leads": 100,
+        "price": 999,
+        "price_display": "₹999",
+        "price_per_lead": "₹9.99 / lead",
+        "description": "Our most popular package for growing property agencies and channel partners.",
+        "features": [
+            "100 Premium Verified Leads",
+            "All 25+ Indian Business Categories",
+            "Priority Headless Scraping Speed",
+            "Formatted Calling Sheet Downloads",
+            "Full Multi-Tenant CRM Workspace",
+            "Priority WhatsApp Support"
+        ],
+        "popular": True,
+        "button_text": "Buy Professional (₹999)",
+        "is_free": False
+    },
+    {
+        "id": "agency",
+        "name": "Agency",
+        "badge": "🏢 Agency",
+        "leads": "250+",
+        "price": "Custom",
+        "price_display": "Custom",
+        "price_per_lead": "Best Volume Rates",
+        "description": "High-volume bulk data and multi-caller setups for marketing agencies and developers.",
+        "features": [
+            "250+ to 10,000+ Verified Leads",
+            "Custom City Expansion on Demand",
+            "Multi-Agent CRM Team Logins",
+            "Dedicated Account Manager",
+            "Custom API & CRM Integration"
+        ],
+        "popular": False,
+        "button_text": "Contact Sales",
+        "is_free": False
+    }
+]
 
 # =============================================================================
 # Request & Response Models
@@ -52,16 +159,10 @@ class CreateUserRequest(BaseModel):
 class UpdateUserRequest(BaseModel):
     name: Optional[str] = None
     company: Optional[str] = None
-    status: Optional[str] = None # 'active' | 'suspended'
+    status: Optional[str] = None
     credits_limit: Optional[int] = None
     password: Optional[str] = None
     role: Optional[str] = None
-
-class ScrapeRequest(BaseModel):
-    query: str
-    city: Optional[str] = ""
-    category: Optional[str] = "Real Estate"
-    max_results: Optional[int] = 30
 
 class LeadUpdate(BaseModel):
     name: Optional[str] = None
@@ -82,15 +183,14 @@ class BulkStatusRequest(BaseModel):
     call_status: str
 
 # =============================================================================
-# Authentication Dependency
+# Authentication Dependencies
 # =============================================================================
-def get_current_user(
+def get_optional_user(
     authorization: Optional[str] = Header(None),
     token: Optional[str] = Query(None)
-) -> Dict[str, Any]:
+) -> Optional[Dict[str, Any]]:
     """
-    Extracts and verifies JWT token from Authorization header or ?token= query parameter.
-    Returns live user record from DB.
+    Extracts user if valid JWT is present, or returns None (Guest mode).
     """
     jwt_token = None
     if authorization:
@@ -101,35 +201,35 @@ def get_current_user(
         jwt_token = token
 
     if not jwt_token:
+        return None
+
+    payload = decode_access_token(jwt_token)
+    if not payload or "sub" not in payload:
+        return None
+
+    user_id = payload.get("sub")
+    try:
+        user = db.get_user_by_id(int(user_id))
+        if user and user["status"] != "suspended":
+            return user
+    except Exception:
+        pass
+    return None
+
+def get_current_user(
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None)
+) -> Dict[str, Any]:
+    """
+    Strict auth requirement for private endpoints.
+    """
+    user = get_optional_user(authorization=authorization, token=token)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required. Please log in.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    payload = decode_access_token(jwt_token)
-    if not payload or "sub" not in payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired session. Please log in again.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    user_id = payload.get("sub")
-    user = db.get_user_by_id(int(user_id))
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User account not found.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if user["status"] == "suspended":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your account has been suspended. Please contact PixelBoost administrator."
-        )
-
     return user
 
 def require_admin_user(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
@@ -140,6 +240,14 @@ def require_admin_user(current_user: Dict[str, Any] = Depends(get_current_user))
             detail="Access restricted: Master Admin privileges required."
         )
     return current_user
+
+# =============================================================================
+# Plans & Pricing API
+# =============================================================================
+@app.get("/api/plans")
+def get_plans():
+    """Returns official pricing matrix."""
+    return {"plans": OFFICIAL_PLANS}
 
 # =============================================================================
 # Auth Endpoints
@@ -207,7 +315,6 @@ def change_password(payload: ChangePasswordRequest, current_user: Dict[str, Any]
 @app.get("/api/admin/users")
 def list_clients(admin_user: Dict[str, Any] = Depends(require_admin_user)):
     users = db.get_all_users()
-    # Strip sensitive password hashes
     sanitized = []
     for u in users:
         d = dict(u)
@@ -258,19 +365,32 @@ def get_master_admin_stats(admin_user: Dict[str, Any] = Depends(require_admin_us
 # Multi-Tenant Leads & CRM Endpoints
 # =============================================================================
 @app.get("/api/stats")
-def get_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
-    user_id = None if current_user["role"] == "admin" else current_user["id"]
+def get_stats(user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
+    user_id = None
+    if user:
+        user_id = None if user["role"] == "admin" else user["id"]
+    
     stats = db.get_stats(user_id=user_id)
-    stats["user_credits"] = {
-        "limit": current_user["credits_limit"],
-        "used": current_user["credits_used"],
-        "remaining": max(0, current_user["credits_limit"] - current_user["credits_used"])
-    }
+    if user:
+        stats["user_credits"] = {
+            "limit": user["credits_limit"],
+            "used": user["credits_used"],
+            "remaining": max(0, user["credits_limit"] - user["credits_used"])
+        }
+    else:
+        stats["user_credits"] = {
+            "limit": 5,
+            "used": 0,
+            "remaining": 5,
+            "is_guest": True
+        }
     return stats
 
 @app.get("/api/areas")
-def get_areas(current_user: Dict[str, Any] = Depends(get_current_user)):
-    user_id = None if current_user["role"] == "admin" else current_user["id"]
+def get_areas(user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
+    user_id = None
+    if user:
+        user_id = None if user["role"] == "admin" else user["id"]
     return {"areas": db.get_unique_areas(user_id=user_id)}
 
 @app.get("/api/leads")
@@ -286,11 +406,16 @@ def get_leads(
     limit: int = Query(200, description="Number of results"),
     offset: int = Query(0, description="Offset for pagination"),
     client_id: Optional[int] = Query(None, description="Master Admin filter for specific tenant"),
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    user: Optional[Dict[str, Any]] = Depends(get_optional_user)
 ):
-    target_user_id = current_user["id"]
-    if current_user["role"] == "admin":
-        target_user_id = client_id # None = all tenants
+    target_user_id = None
+    if user:
+        target_user_id = user["id"]
+        if user["role"] == "admin":
+            target_user_id = client_id
+    else:
+        # Guest user: show recent 5 demo leads
+        limit = min(limit, 5)
 
     leads = db.get_leads(
         user_id=target_user_id,
@@ -305,7 +430,7 @@ def get_leads(
         limit=limit,
         offset=offset
     )
-    return {"leads": leads, "count": len(leads)}
+    return {"leads": leads, "count": len(leads), "is_guest": user is None}
 
 @app.get("/api/leads/{lead_id}")
 def get_lead(lead_id: int, current_user: Dict[str, Any] = Depends(get_current_user)):
@@ -350,10 +475,10 @@ def bulk_update_status(payload: BulkStatusRequest, current_user: Dict[str, Any] 
     return {"success": True, "updated_count": count}
 
 # =============================================================================
-# Scraping Engine SSE Stream (With Credit Enforcing)
+# Scraping Engine SSE Stream (Supports 5 Free Leads Without Signup)
 # =============================================================================
 @app.post("/api/scrape/stop")
-def stop_scraping(current_user: Dict[str, Any] = Depends(get_current_user)):
+def stop_scraping(user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
     scraper_instance.cancel()
     return {"success": True, "message": "Scrape cancellation requested."}
 
@@ -363,16 +488,25 @@ async def stream_scrape(
     city: str = Query("", description="Target city/area"),
     category: str = Query("Real Estate", description="Business category"),
     max_results: int = Query(30, description="Max leads to fetch"),
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    user: Optional[Dict[str, Any]] = Depends(get_optional_user)
 ):
     """
     SSE stream for live scraping progress and newly extracted leads.
-    Validates tenant remaining credits and scopes leads to current user.
+    - If user is logged in: validates credits quota and scopes leads to user.
+    - If guest (no signup): permits up to 5 free test leads.
     """
-    tenant_id = current_user["id"]
+    if user:
+        tenant_id = user["id"]
+    else:
+        # 5 Free leads trial without signup
+        tenant_id = 0
+        max_results = min(max_results, 5)
 
     async def event_generator():
         try:
+            if not user:
+                yield f"data: {json.dumps({'type': 'log', 'message': '🎁 Free Trial Active: Extracting up to 5 free verified leads without signup...'})}\n\n"
+            
             async for event in scraper_instance.scrape(
                 query=query,
                 max_results=max_results,
@@ -382,6 +516,10 @@ async def stream_scrape(
             ):
                 yield f"data: {json.dumps(event)}\n\n"
                 await asyncio.sleep(0.01)
+
+            if not user:
+                yield f"data: {json.dumps({'type': 'trial_completed', 'message': 'You have extracted 5 free leads! Upgrade to unlock unlimited lead generation.'})}\n\n"
+
         except asyncio.CancelledError:
             scraper_instance.cancel()
             yield f"data: {json.dumps({'type': 'log', 'message': 'Client disconnected / cancelled'})}\n\n"
