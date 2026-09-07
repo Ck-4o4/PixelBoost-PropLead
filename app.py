@@ -366,24 +366,29 @@ def get_master_admin_stats(admin_user: Dict[str, Any] = Depends(require_admin_us
 # =============================================================================
 @app.get("/api/stats")
 def get_stats(user: Optional[Dict[str, Any]] = Depends(get_optional_user)):
-    user_id = None
-    if user:
-        user_id = None if user["role"] == "admin" else user["id"]
-    
+    if not user:
+        # Fresh guest visitor starts with 0 leads
+        return {
+            "total_leads": 0,
+            "with_phone": 0,
+            "without_phone": 0,
+            "status_counts": {},
+            "total_searches": 0,
+            "user_credits": {
+                "limit": 5,
+                "used": 0,
+                "remaining": 5,
+                "is_guest": True
+            }
+        }
+
+    user_id = None if user["role"] == "admin" else user["id"]
     stats = db.get_stats(user_id=user_id)
-    if user:
-        stats["user_credits"] = {
-            "limit": user["credits_limit"],
-            "used": user["credits_used"],
-            "remaining": max(0, user["credits_limit"] - user["credits_used"])
-        }
-    else:
-        stats["user_credits"] = {
-            "limit": 5,
-            "used": 0,
-            "remaining": 5,
-            "is_guest": True
-        }
+    stats["user_credits"] = {
+        "limit": user["credits_limit"],
+        "used": user["credits_used"],
+        "remaining": max(0, user["credits_limit"] - user["credits_used"])
+    }
     return stats
 
 @app.get("/api/areas")
@@ -408,14 +413,13 @@ def get_leads(
     client_id: Optional[int] = Query(None, description="Master Admin filter for specific tenant"),
     user: Optional[Dict[str, Any]] = Depends(get_optional_user)
 ):
-    target_user_id = None
-    if user:
-        target_user_id = user["id"]
-        if user["role"] == "admin":
-            target_user_id = client_id
-    else:
-        # Guest user: show recent 5 demo leads
-        limit = min(limit, 5)
+    if not user:
+        # Unauthenticated guest visitor starts fresh with 0 leads until they generate
+        return {"leads": [], "count": 0, "is_guest": True}
+
+    target_user_id = user["id"]
+    if user["role"] == "admin":
+        target_user_id = client_id
 
     leads = db.get_leads(
         user_id=target_user_id,
@@ -430,7 +434,7 @@ def get_leads(
         limit=limit,
         offset=offset
     )
-    return {"leads": leads, "count": len(leads), "is_guest": user is None}
+    return {"leads": leads, "count": len(leads), "is_guest": False}
 
 @app.get("/api/leads/{lead_id}")
 def get_lead(lead_id: int, user: Optional[Dict[str, Any]] = Depends(get_optional_user)):

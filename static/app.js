@@ -502,6 +502,10 @@ function startScraping() {
     }
   }
 
+  if (!currentUser) {
+    guestLeads = [];
+  }
+
   btnStartScrape.classList.add('hidden');
   btnStopScrape.classList.remove('hidden');
   progressContainer.classList.remove('hidden');
@@ -543,6 +547,15 @@ function handleScrapeEvent(data) {
   if (data.type === 'log') {
     appendLog(data.message, 'info');
   } else if (data.type === 'lead') {
+    if (!currentUser && data.lead) {
+      // Avoid duplicate push
+      if (!guestLeads.some(l => l.id === data.lead.id || (l.name === data.lead.name && l.phone === data.lead.phone))) {
+        guestLeads.push(data.lead);
+      }
+      statTotal.textContent = guestLeads.length;
+      statPhone.textContent = guestLeads.filter(l => l.phone).length;
+      sidebarLeadCount.textContent = guestLeads.length;
+    }
     renderStreamLead(data.lead, data.is_new);
     liveExtractedCounter.textContent = `${data.scraped_count} Extracted`;
     
@@ -553,7 +566,9 @@ function handleScrapeEvent(data) {
     }
 
     // Refresh CRM stats and user credits dynamically
-    fetchStats();
+    if (currentUser) {
+      fetchStats();
+    }
   } else if (data.type === 'complete') {
     appendLog(`🎉 ${data.message}`, 'success');
     showToast(data.message, 'success');
@@ -782,7 +797,19 @@ async function fetchAreas() {
   }
 }
 
+let guestLeads = [];
+
 async function fetchLeads() {
+  if (!currentUser) {
+    // In Guest mode: display only the leads extracted during this session!
+    leadsData = guestLeads;
+    renderLeadsTable(leadsData);
+    statTotal.textContent = guestLeads.length;
+    statPhone.textContent = guestLeads.filter(l => l.phone).length;
+    sidebarLeadCount.textContent = guestLeads.length;
+    return;
+  }
+
   const search = crmSearch.value.trim();
   const status = filterStatus.value;
   const city = filterArea.value;
@@ -816,7 +843,7 @@ function renderLeadsTable(leads) {
     leadsTableBody.innerHTML = `
       <tr>
         <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-dim);">
-          No leads matching your current filter. Click "Start Extracting Leads" to collect new contacts.
+          ${currentUser ? 'No leads matching your current filter. Click "Start Extracting Leads" to collect new contacts.' : 'No leads extracted yet. Go to "Lead Generator" and click "Start Extracting 5 Free Leads" to get your 5 free contacts!'}
         </td>
       </tr>
     `;
