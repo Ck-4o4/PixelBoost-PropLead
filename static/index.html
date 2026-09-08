@@ -781,6 +781,10 @@
 
           <!-- Customers Table -->
           <div class="crm-table-container mt-4">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
+              <h4 style="font-size: 1rem; color: var(--text-main); font-weight: 700;">👥 Registered Customer Directory</h4>
+              <span class="text-dim" style="font-size: 0.8rem;" id="admin-users-count-label">0 Users registered</span>
+            </div>
             <table class="crm-table" id="admin-users-table">
               <thead>
                 <tr>
@@ -797,6 +801,34 @@
                 <tr>
                   <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-dim);">
                     Loading customer accounts...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Payment Orders History Table -->
+          <div class="crm-table-container mt-4" style="margin-top: 28px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
+              <h4 style="font-size: 1rem; color: var(--text-main); font-weight: 700;">💳 PhonePe & Online Payment History</h4>
+              <span class="text-dim" style="font-size: 0.8rem;" id="admin-payments-count-label">0 Transactions</span>
+            </div>
+            <table class="crm-table" id="admin-payments-table">
+              <thead>
+                <tr>
+                  <th>Order ID / Txn Ref</th>
+                  <th>Customer Name & Email</th>
+                  <th>Plan Purchased</th>
+                  <th>Leads Added</th>
+                  <th>Amount (INR)</th>
+                  <th>Payment Status</th>
+                  <th>Date & Time</th>
+                </tr>
+              </thead>
+              <tbody id="admin-payments-table-body">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-dim);">
+                    Loading payment records...
                   </td>
                 </tr>
               </tbody>

@@ -438,6 +438,7 @@ function switchTab(tab) {
     pageSubtitle.textContent = 'Manage customer tenants, allocate lead quotas, and oversee platform usage';
     fetchAdminStats();
     fetchAdminUsers();
+    fetchAdminPayments();
   }
 }
 
@@ -1359,6 +1360,79 @@ function renderAdminUsersTable(users) {
       </td>
     `;
     adminUsersTableBody.appendChild(tr);
+  });
+
+  const countLabel = document.getElementById('admin-users-count-label');
+  if (countLabel) countLabel.textContent = `${users.length} Customer Account${users.length === 1 ? '' : 's'} registered`;
+}
+
+async function fetchAdminPayments() {
+  try {
+    const res = await fetch('/api/admin/payments', {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    renderAdminPaymentsTable(data.payments || []);
+  } catch (err) {
+    console.error('Error fetching admin payments:', err);
+  }
+}
+
+function renderAdminPaymentsTable(payments) {
+  const tableBody = document.getElementById('admin-payments-table-body');
+  const countLabel = document.getElementById('admin-payments-count-label');
+  if (!tableBody) return;
+  tableBody.innerHTML = '';
+
+  if (countLabel) countLabel.textContent = `${payments.length} Transaction${payments.length === 1 ? '' : 's'}`;
+
+  if (payments.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-dim);">
+          No payment orders recorded yet. Online checkouts via PhonePe will appear here in real-time.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  payments.forEach(p => {
+    const tr = document.createElement('tr');
+    const isSuccess = p.status === 'SUCCESS';
+    const isFailed = p.status === 'FAILED';
+
+    tr.innerHTML = `
+      <td>
+        <span style="font-family: monospace; font-size: 0.8rem; font-weight: 700; color: var(--text-main);">${escapeHtml(p.transaction_id)}</span>
+        <div style="font-size: 0.72rem; color: var(--text-dim);">${escapeHtml(p.provider || 'phonepe').toUpperCase()}</div>
+      </td>
+      <td>
+        <div class="contact-cell">
+          <span class="contact-name">${escapeHtml(p.user_name || 'Client #' + p.user_id)}</span>
+          <span class="contact-cat">${escapeHtml(p.user_email || '—')}</span>
+        </div>
+      </td>
+      <td>
+        <strong>${escapeHtml(p.plan_name)} Plan</strong>
+      </td>
+      <td>
+        <span class="count-pill">+${(p.leads_count || 0).toLocaleString()} Leads</span>
+      </td>
+      <td>
+        <strong style="font-size: 0.95rem; color: var(--text-main);">₹${p.amount_inr}</strong>
+      </td>
+      <td>
+        <span class="status-pill ${isSuccess ? 'status-dealclosed' : isFailed ? 'status-notinterested' : 'status-new'}">
+          ${isSuccess ? '✅ SUCCESS' : isFailed ? '❌ FAILED' : '⏳ PENDING'}
+        </span>
+      </td>
+      <td>
+        <span style="font-size: 0.78rem; color: var(--text-dim);">${new Date(p.created_at || Date.now()).toLocaleString()}</span>
+      </td>
+    `;
+    tableBody.appendChild(tr);
   });
 }
 
