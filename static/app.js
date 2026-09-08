@@ -93,6 +93,18 @@ function getAuthHeaders(extra = {}) {
   };
 }
 
+async function authFetch(url, options = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders(),
+    ...(options.headers || {})
+  };
+  return fetch(url, {
+    ...options,
+    headers
+  });
+}
+
 // Check Authentication Session
 async function checkAuthSession() {
   const token = getAuthToken();
@@ -1634,7 +1646,7 @@ function setupPricingEvents() {
       const leadsText = isCustom ? '250+ Custom Leads' : `${activeCheckoutPlan.leads} Leads`;
 
       const msg = `Hi CK! I am logged in as *${currentUser.name}* (${currentUser.email}, User ID: #${currentUser.id}${currentUser.company ? ', Company: ' + currentUser.company : ''}).\n\nI want to activate the *${activeCheckoutPlan.planName} Plan* (${leadsText} @ ${priceText}) for PixelBoost PropLeadAi.\n\nPlease share payment details / UPI QR code to credit the leads to my account.`;
-      const waUrl = `https://wa.me/919999999999?text=${encodeURIComponent(msg)}`;
+      const waUrl = `https://wa.me/919737857495?text=${encodeURIComponent(msg)}`;
       window.open(waUrl, '_blank');
       closePaymentModal();
     });
@@ -1824,7 +1836,7 @@ function executePlanPurchase(planName, leads, price) {
     const priceText = 'Custom Enterprise Quote';
     const leadsText = '250+ Custom Leads';
     const msg = `Hi CK! I am logged in as *${currentUser.name}* (${currentUser.email}, User ID: #${currentUser.id}${currentUser.company ? ', Company: ' + currentUser.company : ''}).\n\nI want to activate the *${planName} Plan* (${leadsText} @ ${priceText}) for PixelBoost PropLeadAi.\n\nPlease share payment details / custom invoice.`;
-    const waUrl = `https://wa.me/919999999999?text=${encodeURIComponent(msg)}`;
+    const waUrl = `https://wa.me/919737857495?text=${encodeURIComponent(msg)}`;
     showToast(`Opening WhatsApp concierge for ${currentUser.name}...`, 'info');
     window.open(waUrl, '_blank');
     return;
