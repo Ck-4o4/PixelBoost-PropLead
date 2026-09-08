@@ -4,15 +4,16 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
-from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Depends, status
+from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Depends, status, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
+from fastapi.responses import StreamingResponse, FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 import pandas as pd
 
 from database import db, clean_phone
 from scraper import scraper_instance
+import phonepe_gateway
 from auth import (
     create_access_token,
     decode_access_token,
@@ -745,6 +746,150 @@ async def import_csv(file: UploadFile = File(...), current_user: Dict[str, Any] 
             new_count += 1
 
     return {"success": True, "total_processed": imported_count, "new_leads_added": new_count}
+
+# =============================================================================
+# PhonePe Payment Gateway Integration
+# =============================================================================
+class PhonePeInitiateRequest(BaseModel):
+    plan_name: str
+    leads_count: int
+    amount_inr: float
+    mobile: Optional[str] = None
+
+@app.post("/api/payment/phonepe/initiate")
+async def initiate_payment(
+    payload: PhonePeInitiateRequest,
+    request: Request,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Creates a pending order and initiates PhonePe hosted checkout.
+    Returns PhonePe payment redirect URL for frontend.
+    """
+    if payload.amount_inr <= 0:
+        raise HTTPException(status_code=400, detail="Invalid plan amount.")
+
+    # Determine base url
+    base_url = str(request.base_url).rstrip("/")
+    # If request came through a proxy or local port
+    host_header = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    proto_header = request.headers.get("x-forwarded-proto", "http")
+    if host_header:
+        base_url = f"{proto_header}://{host_header}"
+
+    result = await phonepe_gateway.initiate_phonepe_payment(
+        user_id=current_user["id"],
+        user_name=current_user["name"],
+        user_email=current_user["email"],
+        plan_name=payload.plan_name,
+        leads_count=payload.leads_count,
+        amount_inr=payload.amount_inr,
+        callback_base_url=base_url,
+        mobile=payload.mobile
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=result.get("error", "Failed to initiate transaction with PhonePe.")
+        )
+
+    # Record order in local DB
+    db.create_payment_order(
+        user_id=current_user["id"],
+        plan_name=payload.plan_name,
+        leads_count=payload.leads_count,
+        amount_inr=payload.amount_inr,
+        transaction_id=result["merchant_txn_id"],
+        provider="phonepe"
+    )
+
+    return {
+        "success": True,
+        "merchant_txn_id": result["merchant_txn_id"],
+        "redirect_url": result["redirect_url"],
+        "plan_name": payload.plan_name,
+        "amount_inr": payload.amount_inr,
+        "leads_count": payload.leads_count
+    }
+
+@app.api_route("/api/payment/phonepe/callback", methods=["GET", "POST"])
+async def phonepe_callback(request: Request, txnId: Optional[str] = Query(None)):
+    """
+    PhonePe user redirect callback after payment attempt.
+    Verifies transaction status directly with PhonePe Hermes API,
+    credits the customer quota, and redirects to dashboard with status.
+    """
+    txn_id = txnId
+    if not txn_id:
+        # Check form data
+        try:
+            form = await request.form()
+            txn_id = form.get("transactionId") or form.get("merchantTransactionId")
+        except Exception:
+            pass
+
+    if not txn_id:
+        return RedirectResponse(url="/?payment=failed&reason=missing_txn", status_code=303)
+
+    payment = db.get_payment_by_txn_id(txn_id)
+    if not payment:
+        return RedirectResponse(url="/?payment=failed&reason=order_not_found", status_code=303)
+
+    # Verify status from PhonePe API
+    status_res = await phonepe_gateway.check_phonepe_order_status(txn_id)
+    
+    if status_res.get("success"):
+        # Payment successful
+        payment_data = status_res.get("data", {})
+        pay_mode = payment_data.get("paymentInstrument", {}).get("type", "PHONEPE_UPI")
+        
+        # Only credit if not already marked SUCCESS
+        if payment["status"] != "SUCCESS":
+            db.update_payment_status(txn_id, "SUCCESS", phonepe_response_code="PAYMENT_SUCCESS", payment_mode=pay_mode)
+            db.add_user_credits(payment["user_id"], payment["leads_count"])
+
+        return RedirectResponse(
+            url=f"/?payment=success&plan={payment['plan_name']}&leads={payment['leads_count']}&amount={payment['amount_inr']}&txn={txn_id}",
+            status_code=303
+        )
+    else:
+        # Payment failed or cancelled
+        fail_code = status_res.get("code", "FAILED")
+        db.update_payment_status(txn_id, "FAILED", phonepe_response_code=fail_code)
+        return RedirectResponse(
+            url=f"/?payment=failed&plan={payment['plan_name']}&reason={fail_code}&txn={txn_id}",
+            status_code=303
+        )
+
+@app.post("/api/payment/phonepe/webhook")
+async def phonepe_webhook(request: Request):
+    """
+    Server-to-Server asynchronous webhook notification from PhonePe.
+    """
+    try:
+        data = await request.json()
+        resp_b64 = data.get("response")
+        if resp_b64:
+            decoded = json.loads(base64.b64decode(resp_b64).decode("utf-8"))
+            txn_id = decoded.get("data", {}).get("merchantTransactionId")
+            code = decoded.get("code")
+            if txn_id:
+                payment = db.get_payment_by_txn_id(txn_id)
+                if payment and code == "PAYMENT_SUCCESS" and payment["status"] != "SUCCESS":
+                    db.update_payment_status(txn_id, "SUCCESS", phonepe_response_code=code)
+                    db.add_user_credits(payment["user_id"], payment["leads_count"])
+    except Exception:
+        pass
+    return {"status": "ok"}
+
+@app.get("/api/admin/payments")
+def get_admin_payments(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Master Admin: View full history of PhonePe transactions and revenue."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required.")
+    payments = db.get_all_payments(limit=100)
+    return {"payments": payments, "total": len(payments)}
 
 # Mount frontend static directory
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

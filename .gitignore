@@ -19,6 +19,8 @@ test_recordings/
 # Temp & OS Files
 .DS_Store
 *.log
+.env
+.env.*
 scratch/
 .system_generated/
 .user_uploaded/
@@ -26,3 +28,4 @@ scratch/
 
 # Keep leads.db tracked or let it create fresh
 # leads.db
+

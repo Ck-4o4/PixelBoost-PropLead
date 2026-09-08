@@ -884,6 +884,55 @@
     </div>
   </div>
 
+  <!-- Modal: PhonePe & Payment Checkout Options -->
+  <div class="modal-overlay hidden" id="checkout-payment-modal">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.6rem;">💳</span>
+          <div>
+            <h3 id="pay-modal-title">Complete Your Plan Order</h3>
+            <p class="modal-subtitle">Secure payment processed via PhonePe Payment Gateway</p>
+          </div>
+        </div>
+        <button class="modal-close" id="btn-close-pay-modal">&times;</button>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <!-- Order Summary Card -->
+        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 0.85rem; color: var(--text-dim);">Selected Plan:</span>
+            <strong id="pay-summary-plan-name" style="font-size: 1.05rem; color: var(--primary);">Growth Plan</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 0.85rem; color: var(--text-dim);">Lead Credits:</span>
+            <strong id="pay-summary-leads-count" style="font-size: 0.95rem; color: var(--success);">50 Verified Leads</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed #cbd5e1;">
+            <span style="font-weight: 600; color: var(--text-main);">Total Payable (INR):</span>
+            <strong id="pay-summary-total-price" style="font-size: 1.4rem; font-weight: 800; color: var(--text-main);">₹499</strong>
+          </div>
+        </div>
+
+        <!-- PhonePe Direct PG Button -->
+        <button type="button" class="btn-hero full-width" id="btn-pay-phonepe" style="background: linear-gradient(135deg, #5f259f, #7c3aed); border: none; padding: 14px; font-size: 1.02rem; font-weight: 700; box-shadow: 0 4px 14px rgba(95, 37, 159, 0.35); margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>⚡ Pay via PhonePe / UPI / Cards</span>
+        </button>
+        <p style="text-align: center; font-size: 0.76rem; color: var(--text-dim); margin-bottom: 16px;">
+          🔒 256-Bit Encrypted • UPI, GPay, Paytm, QR, NetBanking & Cards Supported
+        </p>
+
+        <!-- Secondary Option: WhatsApp Concierge -->
+        <div style="text-align: center; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          <button type="button" class="btn-text-link" id="btn-pay-whatsapp" style="font-size: 0.84rem; color: var(--text-dim); text-decoration: underline;">
+            💬 Need custom invoice or bank NEFT? Pay via WhatsApp Concierge
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Sign In / Create Account Required to Buy Plan -->
   <div class="modal-overlay hidden" id="auth-checkout-modal">
     <div class="modal-card auth-modal-card" style="max-width: 480px;">

@@ -336,8 +336,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   fetchAreas();
   fetchLeads();
 
-  // Check if URL has pending ?buy_plan=...
+  // Check if URL has PhonePe payment callback status
   const urlParams = new URLSearchParams(window.location.search);
+  const paymentStatus = urlParams.get('payment');
+  if (paymentStatus === 'success') {
+    const paidPlan = urlParams.get('plan') || 'Plan';
+    const addedLeads = urlParams.get('leads') || 'Credits';
+    const amount = urlParams.get('amount') || '';
+    window.history.replaceState({}, document.title, window.location.pathname);
+    showToast(`🎉 Payment Successful! ₹${amount} received. ${addedLeads} Leads have been credited to your account!`, 'success', 8000);
+    await checkAuthSession();
+    fetchStats();
+  } else if (paymentStatus === 'failed') {
+    const reason = urlParams.get('reason') || 'Transaction cancelled';
+    window.history.replaceState({}, document.title, window.location.pathname);
+    showToast(`❌ Payment was not completed (${reason}). Please try again.`, 'error', 6000);
+  }
+
+  // Check if URL has pending ?buy_plan=...
   const buyPlanParam = urlParams.get('buy_plan');
   const leadsParam = urlParams.get('leads');
   const priceParam = urlParams.get('price');
@@ -1513,6 +1529,7 @@ function showToast(msg, type = 'info') {
 
 // Pricing & Upgrade Modal Functions
 let pendingPlanPurchase = null;
+let activeCheckoutPlan = null;
 
 const authCheckoutModal = document.getElementById('auth-checkout-modal');
 const btnCloseAuthModal = document.getElementById('btn-close-auth-modal');
@@ -1523,6 +1540,15 @@ const modalRegisterForm = document.getElementById('modal-register-form');
 const authSummaryPlanName = document.getElementById('auth-summary-plan-name');
 const authSummaryPlanLeads = document.getElementById('auth-summary-plan-leads');
 const authSummaryPlanPrice = document.getElementById('auth-summary-plan-price');
+
+// PhonePe Payment Modal Elements
+const checkoutPaymentModal = document.getElementById('checkout-payment-modal');
+const btnClosePayModal = document.getElementById('btn-close-pay-modal');
+const btnPayPhonepe = document.getElementById('btn-pay-phonepe');
+const btnPayWhatsapp = document.getElementById('btn-pay-whatsapp');
+const paySummaryPlanName = document.getElementById('pay-summary-plan-name');
+const paySummaryLeadsCount = document.getElementById('pay-summary-leads-count');
+const paySummaryTotalPrice = document.getElementById('pay-summary-total-price');
 
 function setupPricingEvents() {
   if (btnHeaderUpgrade) {
@@ -1542,6 +1568,75 @@ function setupPricingEvents() {
       if (e.target === pricingModal) {
         closePricingModal();
       }
+    });
+  }
+
+  // PhonePe Payment Modal Events
+  if (btnClosePayModal) {
+    btnClosePayModal.addEventListener('click', () => {
+      closePaymentModal();
+    });
+  }
+
+  if (checkoutPaymentModal) {
+    checkoutPaymentModal.addEventListener('click', (e) => {
+      if (e.target === checkoutPaymentModal) {
+        closePaymentModal();
+      }
+    });
+  }
+
+  // Trigger PhonePe 1-Click Hosted Checkout
+  if (btnPayPhonepe) {
+    btnPayPhonepe.addEventListener('click', async () => {
+      if (!activeCheckoutPlan) return;
+      
+      const origHtml = btnPayPhonepe.innerHTML;
+      btnPayPhonepe.disabled = true;
+      btnPayPhonepe.innerHTML = '<span>⏳ Connecting to PhonePe Secure Gateway...</span>';
+
+      try {
+        const res = await authFetch('/api/payment/phonepe/initiate', {
+          method: 'POST',
+          body: JSON.stringify({
+            plan_name: activeCheckoutPlan.planName,
+            leads_count: parseInt(activeCheckoutPlan.leads),
+            amount_inr: parseFloat(activeCheckoutPlan.price)
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Could not initiate PhonePe transaction.');
+        }
+
+        if (data.redirect_url) {
+          showToast('Redirecting to PhonePe secure checkout...', 'success');
+          // Navigate to PhonePe hosted checkout URL
+          window.location.href = data.redirect_url;
+        } else {
+          throw new Error('No checkout redirect URL received from PhonePe.');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+        btnPayPhonepe.disabled = false;
+        btnPayPhonepe.innerHTML = origHtml;
+      }
+    });
+  }
+
+  // WhatsApp concierge fallback
+  if (btnPayWhatsapp) {
+    btnPayWhatsapp.addEventListener('click', () => {
+      if (!activeCheckoutPlan || !currentUser) return;
+      const isCustom = activeCheckoutPlan.price === 'Custom' || String(activeCheckoutPlan.price).toLowerCase().includes('custom');
+      const priceText = isCustom ? 'Custom Enterprise Quote' : `₹${activeCheckoutPlan.price}`;
+      const leadsText = isCustom ? '250+ Custom Leads' : `${activeCheckoutPlan.leads} Leads`;
+
+      const msg = `Hi CK! I am logged in as *${currentUser.name}* (${currentUser.email}, User ID: #${currentUser.id}${currentUser.company ? ', Company: ' + currentUser.company : ''}).\n\nI want to activate the *${activeCheckoutPlan.planName} Plan* (${leadsText} @ ${priceText}) for PixelBoost PropLeadAi.\n\nPlease share payment details / UPI QR code to credit the leads to my account.`;
+      const waUrl = `https://wa.me/919999999999?text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, '_blank');
+      closePaymentModal();
     });
   }
 }
@@ -1605,7 +1700,7 @@ function setupAuthCheckoutEvents() {
         currentUser = data.user;
         updateUserProfileUI();
         closeAuthCheckoutModal();
-        showToast(`Welcome back, ${currentUser.name}! Proceeding to buy plan...`, 'success');
+        showToast(`Welcome back, ${currentUser.name}! Proceeding to checkout...`, 'success');
 
         if (pendingPlanPurchase) {
           executePlanPurchase(pendingPlanPurchase.planName, pendingPlanPurchase.leads, pendingPlanPurchase.price);
@@ -1649,7 +1744,7 @@ function setupAuthCheckoutEvents() {
         currentUser = data.user;
         updateUserProfileUI();
         closeAuthCheckoutModal();
-        showToast(`Account created for ${currentUser.name}! Proceeding to buy plan...`, 'success');
+        showToast(`Account created for ${currentUser.name}! Proceeding to checkout...`, 'success');
 
         if (pendingPlanPurchase) {
           executePlanPurchase(pendingPlanPurchase.planName, pendingPlanPurchase.leads, pendingPlanPurchase.price);
@@ -1681,6 +1776,23 @@ function closeAuthCheckoutModal() {
   if (authCheckoutModal) authCheckoutModal.classList.add('hidden');
 }
 
+function openPaymentModal(planName, leads, price) {
+  activeCheckoutPlan = { planName, leads, price };
+  if (paySummaryPlanName) paySummaryPlanName.textContent = `${planName} Plan`;
+  if (paySummaryLeadsCount) paySummaryLeadsCount.textContent = `${leads} Verified Leads`;
+  if (paySummaryTotalPrice) paySummaryTotalPrice.textContent = `₹${price}`;
+
+  if (checkoutPaymentModal) {
+    checkoutPaymentModal.classList.remove('hidden');
+  }
+}
+
+function closePaymentModal() {
+  if (checkoutPaymentModal) {
+    checkoutPaymentModal.classList.add('hidden');
+  }
+}
+
 function openPricingModal(customTitle, customSubtitle) {
   if (!pricingModal) return;
   const titleEl = document.getElementById('pricing-modal-title');
@@ -1707,14 +1819,19 @@ function buyPlan(planName, leads, price) {
 
 function executePlanPurchase(planName, leads, price) {
   const isCustom = price === 'Custom' || String(price).toLowerCase().includes('custom');
-  const priceText = isCustom ? 'Custom Enterprise Quote' : `₹${price}`;
-  const leadsText = isCustom ? '250+ Custom Leads' : `${leads} Leads`;
+  
+  if (isCustom) {
+    const priceText = 'Custom Enterprise Quote';
+    const leadsText = '250+ Custom Leads';
+    const msg = `Hi CK! I am logged in as *${currentUser.name}* (${currentUser.email}, User ID: #${currentUser.id}${currentUser.company ? ', Company: ' + currentUser.company : ''}).\n\nI want to activate the *${planName} Plan* (${leadsText} @ ${priceText}) for PixelBoost PropLeadAi.\n\nPlease share payment details / custom invoice.`;
+    const waUrl = `https://wa.me/919999999999?text=${encodeURIComponent(msg)}`;
+    showToast(`Opening WhatsApp concierge for ${currentUser.name}...`, 'info');
+    window.open(waUrl, '_blank');
+    return;
+  }
 
-  const msg = `Hi CK! I am logged in as *${currentUser.name}* (${currentUser.email}, User ID: #${currentUser.id}${currentUser.company ? ', Company: ' + currentUser.company : ''}).\n\nI want to activate the *${planName} Plan* (${leadsText} @ ${priceText}) for PixelBoost PropLeadAi.\n\nPlease share payment details / UPI QR code to credit the leads to my account.`;
-  const waUrl = `https://wa.me/919999999999?text=${encodeURIComponent(msg)}`;
-
-  showToast(`Opening payment order for ${currentUser.name} (${planName} Plan @ ${priceText})...`, 'success');
-  window.open(waUrl, '_blank');
+  // Open PhonePe Payment Modal
+  openPaymentModal(planName, leads, price);
 }
 
 function startFreeTrial() {
@@ -1735,6 +1852,8 @@ window.app = {
   executePlanPurchase,
   openAuthCheckoutModal,
   closeAuthCheckoutModal,
+  openPaymentModal,
+  closePaymentModal,
   startFreeTrial,
   openPricingModal,
   closePricingModal,

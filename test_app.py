@@ -1,7 +1,7 @@
 import os
 import tempfile
 from fastapi.testclient import TestClient
-from database import Database, clean_phone
+from database import Database, db, clean_phone
 from app import app
 
 client = TestClient(app)
@@ -93,8 +93,42 @@ def test_api_endpoints():
     assert res.status_code == 200
     assert "openxmlformats-officedocument" in res.headers["content-type"]
 
+def test_auth_and_phonepe_flow():
+    # 1. Register a new user
+    import time
+    test_email = f"leaduser_{int(time.time())}@example.com"
+    res = client.post("/api/auth/register", json={
+        "name": "Test Real Estate Agent",
+        "company": "Skyline Realty",
+        "email": test_email,
+        "password": "Password123!"
+    })
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert "access_token" in data
+    token = data["access_token"]
+    user = data["user"]
+    assert user["email"] == test_email
+    initial_credits = user["credits_limit"]
+
+    # 2. Test PhonePe payment initiate validation
+    headers = {"Authorization": f"Bearer {token}"}
+    res_init = client.post("/api/payment/phonepe/initiate", json={
+        "plan_name": "Starter",
+        "leads_count": 10,
+        "amount_inr": 79.0
+    }, headers=headers)
+    # Status code will either be 200 (if PhonePe responds) or 502 (if offline PhonePe mock)
+    assert res_init.status_code in [200, 502]
+
+    # 3. Test Database credit top-up directly
+    assert db.add_user_credits(user["id"], 50) is True
+    updated_user = db.get_user_by_id(user["id"])
+    assert updated_user["credits_limit"] == initial_credits + 50
+
 if __name__ == "__main__":
     test_clean_phone()
     test_database_crud_and_deduplication()
     test_api_endpoints()
+    test_auth_and_phonepe_flow()
     print("All tests passed successfully!")

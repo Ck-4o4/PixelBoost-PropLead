@@ -87,6 +87,28 @@ class Database:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_query ON leads(query)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON leads(user_id)")
 
+            # 3. Payments / Orders table (PhonePe & Online Subscriptions)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS payments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    plan_name TEXT NOT NULL,
+                    leads_count INTEGER NOT NULL,
+                    amount_inr REAL NOT NULL,
+                    currency TEXT DEFAULT 'INR',
+                    transaction_id TEXT UNIQUE NOT NULL,
+                    provider TEXT DEFAULT 'phonepe',
+                    phonepe_response_code TEXT DEFAULT '',
+                    status TEXT DEFAULT 'PENDING',
+                    payment_mode TEXT DEFAULT '',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_payment_user ON payments(user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_payment_txn ON payments(transaction_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_payment_status ON payments(status)")
+
             # Seed default Master Super-Admin if not exists
             cursor.execute("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
             admin_user = cursor.fetchone()
@@ -202,6 +224,72 @@ class Database:
             conn.commit()
             return cursor.rowcount > 0
 
+    def add_user_credits(self, user_id: int, count: int) -> bool:
+        """Add purchased lead credits directly to user's quota limit."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET credits_limit = credits_limit + ? WHERE id = ?", (count, user_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def create_payment_order(
+        self,
+        user_id: int,
+        plan_name: str,
+        leads_count: int,
+        amount_inr: float,
+        transaction_id: str,
+        provider: str = "phonepe"
+    ) -> int:
+        """Create a pending payment transaction order."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO payments (user_id, plan_name, leads_count, amount_inr, transaction_id, provider, status)
+                VALUES (?, ?, ?, ?, ?, ?, 'PENDING')
+            """, (user_id, plan_name, leads_count, amount_inr, transaction_id, provider))
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_payment_status(
+        self,
+        transaction_id: str,
+        status: str,
+        phonepe_response_code: str = "",
+        payment_mode: str = ""
+    ) -> bool:
+        """Update transaction status (SUCCESS, FAILED, PENDING)."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE payments 
+                SET status = ?, phonepe_response_code = ?, payment_mode = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE transaction_id = ?
+            """, (status, phonepe_response_code, payment_mode, transaction_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_payment_by_txn_id(self, transaction_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve payment details by transaction ID."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM payments WHERE transaction_id = ?", (transaction_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_all_payments(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """List all payment orders with user information for Master Admin."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT p.*, u.name as user_name, u.email as user_email, u.company as user_company
+                FROM payments p
+                LEFT JOIN users u ON p.user_id = u.id
+                ORDER BY p.id DESC
+                LIMIT ?
+            """, (limit,))
+            return [dict(r) for r in cursor.fetchall()]
+
     def delete_user(self, user_id: int) -> bool:
         """Delete customer and their isolated leads."""
         with self.get_connection() as conn:
@@ -228,11 +316,16 @@ class Database:
             consumed_row = cursor.fetchone()
             total_credits_consumed = consumed_row["total_credits_consumed"] if consumed_row["total_credits_consumed"] else 0
 
+            cursor.execute("SELECT SUM(amount_inr) as total_revenue FROM payments WHERE status = 'SUCCESS'")
+            rev_row = cursor.fetchone()
+            total_revenue = rev_row["total_revenue"] if rev_row and rev_row["total_revenue"] else 0.0
+
             return {
                 "total_clients": total_clients,
                 "active_clients": active_clients,
                 "total_leads": total_leads,
-                "total_credits_consumed": total_credits_consumed
+                "total_credits_consumed": total_credits_consumed,
+                "total_revenue": total_revenue
             }
 
     # =========================================================================
