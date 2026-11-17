@@ -3,9 +3,18 @@ import os
 import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from auth import hash_password
+import logging
+import secrets
+from auth import hash_password, verify_password
 
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "leads.db")
+logger = logging.getLogger("propleads.database")
+
+# DB_PATH lets a host keep the database on a persistent disk (e.g. /app/data/leads.db).
+DB_FILE = os.getenv("DB_PATH", "").strip() or os.path.join(os.path.dirname(os.path.abspath(__file__)), "leads.db")
+
+ADMIN_EMAIL = "admin@pixelboost.in"
+# This password was published in the public repository, so it must never work again.
+_LEAKED_DEFAULT_ADMIN_PASSWORD = "Admin@PixelBoost2026!"
 
 def clean_phone(phone: Optional[str]) -> str:
     """Normalize phone numbers for deduplication."""
@@ -109,24 +118,43 @@ class Database:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_payment_txn ON payments(transaction_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_payment_status ON payments(status)")
 
-            # Seed default Master Super-Admin if not exists
-            cursor.execute("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
+            # Master Admin: the password comes from the ADMIN_PASSWORD environment variable.
+            admin_password = os.getenv("ADMIN_PASSWORD", "").strip()
+            cursor.execute("SELECT id, password_hash FROM users WHERE email = ?", (ADMIN_EMAIL,))
             admin_user = cursor.fetchone()
             if not admin_user:
-                admin_pass_hash = hash_password("Admin@PixelBoost2026!")
-                cursor.execute("""
-                    INSERT INTO users (email, password_hash, name, company, role, status, credits_limit, credits_used)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    "admin@pixelboost.in",
-                    admin_pass_hash,
-                    "CK Admin",
-                    "PixelBoost Agency",
-                    "admin",
-                    "active",
-                    999999,
-                    0
-                ))
+                cursor.execute("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
+                if not cursor.fetchone():
+                    # No password configured -> seed an unusable random one (admin login stays off).
+                    cursor.execute("""
+                        INSERT INTO users (email, password_hash, name, company, role, status, credits_limit, credits_used)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        ADMIN_EMAIL,
+                        hash_password(admin_password or secrets.token_urlsafe(32)),
+                        "CK Admin",
+                        "PixelBoost Agency",
+                        "admin",
+                        "active",
+                        999999,
+                        0
+                    ))
+                    if not admin_password:
+                        logger.warning("ADMIN_PASSWORD is not set - admin login is disabled until it is.")
+            elif admin_password:
+                # Keep the stored hash in sync with the environment on every start.
+                if not verify_password(admin_password, admin_user["password_hash"]):
+                    cursor.execute(
+                        "UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                        (hash_password(admin_password), admin_user["id"])
+                    )
+            elif verify_password(_LEAKED_DEFAULT_ADMIN_PASSWORD, admin_user["password_hash"]):
+                # Still on the leaked default and nothing configured: lock the account.
+                cursor.execute(
+                    "UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (hash_password(secrets.token_urlsafe(32)), admin_user["id"])
+                )
+                logger.warning("ADMIN_PASSWORD is not set - admin login is disabled until it is.")
             conn.commit()
 
     # =========================================================================
@@ -516,15 +544,20 @@ class Database:
     def bulk_delete(self, lead_ids: List[int], user_id: Optional[int] = None) -> int:
         if not lead_ids:
             return 0
+        deleted = 0
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            placeholders = ",".join("?" for _ in lead_ids)
-            if user_id is not None:
-                cursor.execute(f"DELETE FROM leads WHERE id IN ({placeholders}) AND user_id = ?", lead_ids + [user_id])
-            else:
-                cursor.execute(f"DELETE FROM leads WHERE id IN ({placeholders})", lead_ids)
+            # Chunked so large batches stay under SQLite's bound-variable limit
+            for start in range(0, len(lead_ids), 500):
+                chunk = list(lead_ids[start:start + 500])
+                placeholders = ",".join("?" for _ in chunk)
+                if user_id is not None:
+                    cursor.execute(f"DELETE FROM leads WHERE id IN ({placeholders}) AND user_id = ?", chunk + [user_id])
+                else:
+                    cursor.execute(f"DELETE FROM leads WHERE id IN ({placeholders})", chunk)
+                deleted += cursor.rowcount
             conn.commit()
-            return cursor.rowcount
+        return deleted
 
     def clear_all_leads(self, user_id: Optional[int] = None) -> int:
         with self.get_connection() as conn:
