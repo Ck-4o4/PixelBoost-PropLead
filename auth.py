@@ -1,11 +1,20 @@
 import datetime
+import logging
 import os
+import secrets
 import bcrypt
 import jwt
 from typing import Optional, Dict, Any
 from fastapi import Header, HTTPException, status
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "pixelboost-secret-key-2026-propleadai-secure")
+# The signing key must come from the environment. If it is missing we generate a
+# random one at startup: the site still works, but every restart logs users out.
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "").strip()
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_urlsafe(48)
+    logging.getLogger("propleads.auth").warning(
+        "JWT_SECRET_KEY is not set - using a temporary key. Sessions reset on every restart."
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 30
 
