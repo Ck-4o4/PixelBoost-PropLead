@@ -118,8 +118,13 @@ def test_auth_and_phonepe_flow():
         "leads_count": 10,
         "amount_inr": 79.0
     }, headers=headers)
-    # Status code will either be 200 (if PhonePe responds) or 502 (if offline PhonePe mock)
-    assert res_init.status_code in [200, 502]
+    # Payments are off unless PAYMENTS_ENABLED=true, so the endpoint must refuse (503).
+    # When enabled: 200 (if PhonePe responds) or 502 (if offline PhonePe mock)
+    from app import PAYMENTS_ENABLED
+    if PAYMENTS_ENABLED:
+        assert res_init.status_code in [200, 502]
+    else:
+        assert res_init.status_code == 503
 
     # 3. Test Database credit top-up directly
     assert db.add_user_credits(user["id"], 50) is True
