@@ -1,4 +1,5 @@
 import io
+import os
 import json
 import asyncio
 from datetime import datetime, timedelta
@@ -9,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
+from starlette.background import BackgroundTask
 import pandas as pd
 
 from database import db, clean_phone
@@ -30,6 +32,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Online payments (PhonePe) stay off until PAYMENTS_ENABLED=true is set on the host.
+PAYMENTS_ENABLED = os.getenv("PAYMENTS_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on")
+
+@app.get("/api/config")
+def get_public_config():
+    """Feature flags the frontend needs before rendering."""
+    return {"payments_enabled": PAYMENTS_ENABLED}
 
 # =============================================================================
 # Pricing Plans Matrix (INR)
@@ -594,6 +604,23 @@ async def stream_scrape(
 # =============================================================================
 # Export & Import (Supports Free Guest Export & Tenant Isolation)
 # =============================================================================
+def _clear_exported_leads(lead_ids: List[int], owner_id: int) -> None:
+    """Runs after the file has been sent: removes the downloaded leads from storage."""
+    try:
+        db.bulk_delete(lead_ids, user_id=owner_id)
+    except Exception:
+        pass
+
+def _cleanup_after_export(leads: List[Dict[str, Any]], user: Optional[Dict[str, Any]]) -> Optional[BackgroundTask]:
+    """
+    Downloaded leads are deleted so they don't keep using storage.
+    Master Admin exports span every tenant, so they never delete anything.
+    """
+    if not leads or (user and user["role"] == "admin"):
+        return None
+    owner_id = user["id"] if user else 0
+    return BackgroundTask(_clear_exported_leads, [lead["id"] for lead in leads], owner_id)
+
 @app.get("/api/export/csv")
 def export_csv(
     status: str = Query(""),
@@ -646,7 +673,8 @@ def export_csv(
     return StreamingResponse(
         iter([stream.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        background=_cleanup_after_export(leads, user)
     )
 
 @app.get("/api/export/excel")
@@ -702,7 +730,8 @@ def export_excel(
     return StreamingResponse(
         stream,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        background=_cleanup_after_export(leads, user)
     )
 
 @app.post("/api/import/csv")
@@ -766,6 +795,12 @@ async def initiate_payment(
     Creates a pending order and initiates PhonePe hosted checkout.
     Returns PhonePe payment redirect URL for frontend.
     """
+    if not PAYMENTS_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Online payments are not available yet. Please contact PixelBoost on WhatsApp."
+        )
+
     if payload.amount_inr <= 0:
         raise HTTPException(status_code=400, detail="Invalid plan amount.")
 
