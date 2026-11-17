@@ -179,7 +179,9 @@ function updateUserProfileUI() {
       targetBadge.textContent = '5 Free Leads (Trial)';
     }
     if (sliderHelper) {
-      sliderHelper.textContent = '🎁 5 leads free without signup. Upgrade for up to 100+ leads!';
+      sliderHelper.textContent = paymentsEnabled
+        ? '🎁 5 leads free without signup. Upgrade for up to 100+ leads!'
+        : '🎁 5 leads free without signup. Sign in to extract more!';
     }
     return;
   }
@@ -329,8 +331,44 @@ const pricingModal = document.getElementById('pricing-modal');
 const btnClosePricingModal = document.getElementById('btn-close-pricing-modal');
 const btnHeaderUpgrade = document.getElementById('btn-header-upgrade');
 
+// Feature flags from the server. Online payments stay hidden until enabled there.
+let paymentsEnabled = false;
+
+async function loadAppConfig() {
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const cfg = await res.json();
+      paymentsEnabled = !!cfg.payments_enabled;
+    }
+  } catch (err) {
+    paymentsEnabled = false;
+  }
+  applyPaymentsVisibility();
+}
+
+function applyPaymentsVisibility() {
+  const navPricing = document.getElementById('nav-pricing');
+  if (btnHeaderUpgrade) btnHeaderUpgrade.classList.toggle('hidden', !paymentsEnabled);
+  if (navPricing) navPricing.classList.toggle('hidden', !paymentsEnabled);
+}
+
+// Shown instead of the plans popup while online payments are switched off
+function promptMoreLeadsWithoutPayments() {
+  if (!currentUser) {
+    showToast('Free trial used. Sign in or create a free account to extract more leads.', 'info');
+    setTimeout(() => { window.location.href = '/login.html'; }, 1200);
+    return;
+  }
+  showToast('To add more lead credits, message PixelBoost on WhatsApp.', 'info');
+  window.open('https://wa.me/919737857495?text=' + encodeURIComponent(
+    `Hi CK! I am ${currentUser.name} (${currentUser.email}). I need more lead credits on PixelBoost PropLeadAi.`
+  ), '_blank');
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+  await loadAppConfig();
   await checkAuthSession();
 
   setupNavigation();
@@ -343,6 +381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupPricingEvents();
   setupAuthCheckoutEvents();
   setupLogoutEvent();
+  setupExportClearNotice();
 
   fetchStats();
   fetchAreas();
@@ -374,6 +413,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     buyPlan(buyPlanParam, leadsParam, priceParam);
   }
 });
+
+// Downloaded leads are removed from the server (not for Master Admin), so refresh the lists
+function setupExportClearNotice() {
+  ['crm-quick-csv', 'crm-quick-excel', 'btn-export-csv-main', 'btn-export-excel-main'].forEach(id => {
+    const link = document.getElementById(id);
+    if (!link) return;
+    link.addEventListener('click', () => {
+      if (!currentUser || currentUser.role === 'admin') return;
+      showToast('Download started. These leads are now cleared from your online list, so keep the file safe.', 'info');
+      setTimeout(() => {
+        fetchStats();
+        fetchLeads();
+        fetchAreas();
+      }, 2500);
+    });
+  });
+}
 
 // Logout
 function setupLogoutEvent() {
@@ -649,15 +705,17 @@ function handleScrapeEvent(data) {
           <div class="locked-lead-overlay">
             <div class="locked-lock-icon">🔒</div>
             <div class="locked-lead-title">45+ More Verified Brokers in this Area</div>
-            <div class="locked-lead-desc">You've unlocked 5 free trial leads! Sign in or select a plan to extract 40 to 100+ verified contacts.</div>
-            <button class="btn-unlock-leads-cta" onclick="app.openPricingModal()">⚡ Unlock Full List — Choose Plan</button>
+            <div class="locked-lead-desc">${paymentsEnabled ? "You've unlocked 5 free trial leads! Sign in or select a plan to extract 40 to 100+ verified contacts." : "You've unlocked 5 free trial leads! Sign in or create a free account to extract more verified contacts."}</div>
+            <button class="btn-unlock-leads-cta" onclick="app.openPricingModal()">${paymentsEnabled ? '⚡ Unlock Full List — Choose Plan' : '⚡ Sign In to Extract More'}</button>
           </div>
         `;
         liveLeadsList.appendChild(blurBlock);
       }
 
       // Lock extractor button
-      btnStartScrape.innerHTML = '<span>🔒 5 Free Leads Used — Upgrade to Extract More</span>';
+      btnStartScrape.innerHTML = paymentsEnabled
+        ? '<span>🔒 5 Free Leads Used — Upgrade to Extract More</span>'
+        : '<span>🔒 5 Free Leads Used — Sign In to Extract More</span>';
       btnStartScrape.classList.add('btn-locked');
       btnStartScrape.onclick = (e) => {
         e.preventDefault();
@@ -669,7 +727,9 @@ function handleScrapeEvent(data) {
 
       const sliderHelper = document.getElementById('slider-helper-text');
       if (sliderHelper) {
-        sliderHelper.textContent = '🔒 Free trial limit reached (5/5 leads). Sign in or choose a plan to extract 40 to 100+ leads.';
+        sliderHelper.textContent = paymentsEnabled
+          ? '🔒 Free trial limit reached (5/5 leads). Sign in or choose a plan to extract 40 to 100+ leads.'
+          : '🔒 Free trial limit reached (5/5 leads). Sign in or create a free account to extract more.';
       }
       const targetBadge = document.getElementById('target-count-badge');
       if (targetBadge) {
@@ -677,6 +737,10 @@ function handleScrapeEvent(data) {
       }
 
       setTimeout(() => {
+        if (!paymentsEnabled) {
+          showToast('🎉 5 free leads extracted! Download them, then sign in or create a free account to extract more.', 'success');
+          return;
+        }
         openPricingModal(
           "🎉 5 Free Leads Extracted!",
           "You've experienced real-time lead extraction! Choose a plan below or sign in to unlock full CRM access & 100+ verified leads."
@@ -1097,10 +1161,10 @@ function renderLeadsTable(leads) {
             <span style="font-size: 1.4rem;">🔒</span>
             <div>
               <strong style="font-size: 0.88rem; color: #92400e;">45+ More Verified Brokers in this Area (Hidden)</strong>
-              <div style="font-size: 0.78rem; color: #b45309;">You've unlocked 5 free trial leads! Sign in or choose a plan to access the complete list with dialer & Excel exports.</div>
+              <div style="font-size: 0.78rem; color: #b45309;">${paymentsEnabled ? "You've unlocked 5 free trial leads! Sign in or choose a plan to access the complete list with dialer & Excel exports." : "You've unlocked 5 free trial leads! Sign in or create a free account to access the complete list with dialer & Excel exports."}</div>
             </div>
           </div>
-          <button class="btn-crm-unlock" onclick="app.openPricingModal()">⚡ Unlock Full List — View Plans</button>
+          <button class="btn-crm-unlock" onclick="app.openPricingModal()">${paymentsEnabled ? '⚡ Unlock Full List — View Plans' : '⚡ Sign In to Unlock Full List'}</button>
         </div>
       </td>
     `;
@@ -1880,6 +1944,10 @@ function closePaymentModal() {
 }
 
 function openPricingModal(customTitle, customSubtitle) {
+  if (!paymentsEnabled) {
+    promptMoreLeadsWithoutPayments();
+    return;
+  }
   if (!pricingModal) return;
   const titleEl = document.getElementById('pricing-modal-title');
   const subEl = document.getElementById('pricing-modal-subtitle');
@@ -1893,6 +1961,10 @@ function closePricingModal() {
 }
 
 function buyPlan(planName, leads, price) {
+  if (!paymentsEnabled) {
+    promptMoreLeadsWithoutPayments();
+    return;
+  }
   if (!currentUser) {
     // Force login or registration before purchasing!
     pendingPlanPurchase = { planName, leads, price };
