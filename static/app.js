@@ -201,10 +201,14 @@ function updateUserProfileUI() {
   }
 
   if (maxResults) {
-    maxResults.max = 100;
+    maxResults.max = maxLeadsPerRun;
+    if (parseInt(maxResults.value, 10) > maxLeadsPerRun) {
+      maxResults.value = maxLeadsPerRun;
+    }
+    if (targetBadge) targetBadge.textContent = `${maxResults.value} Leads`;
   }
   if (sliderHelper) {
-    sliderHelper.textContent = 'Extract up to 100 verified leads in one batch.';
+    sliderHelper.textContent = `Extract up to ${maxLeadsPerRun} verified leads per run. Run again for more.`;
   }
 
   if (creditsPill) {
@@ -333,6 +337,7 @@ const btnHeaderUpgrade = document.getElementById('btn-header-upgrade');
 
 // Feature flags from the server. Online payments stay hidden until enabled there.
 let paymentsEnabled = false;
+let maxLeadsPerRun = 100;
 
 async function loadAppConfig() {
   try {
@@ -340,6 +345,9 @@ async function loadAppConfig() {
     if (res.ok) {
       const cfg = await res.json();
       paymentsEnabled = !!cfg.payments_enabled;
+      if (Number.isFinite(cfg.max_leads_per_run) && cfg.max_leads_per_run > 0) {
+        maxLeadsPerRun = cfg.max_leads_per_run;
+      }
     }
   } catch (err) {
     paymentsEnabled = false;
