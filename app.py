@@ -39,7 +39,8 @@ PAYMENTS_ENABLED = os.getenv("PAYMENTS_ENABLED", "false").strip().lower() in ("1
 @app.get("/api/config")
 def get_public_config():
     """Feature flags the frontend needs before rendering."""
-    return {"payments_enabled": PAYMENTS_ENABLED}
+    from scraper import MAX_LEADS_PER_RUN
+    return {"payments_enabled": PAYMENTS_ENABLED, "max_leads_per_run": MAX_LEADS_PER_RUN}
 
 # =============================================================================
 # Pricing Plans Matrix (INR)
