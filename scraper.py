@@ -1,4 +1,5 @@
 import asyncio
+import os
 import re
 import urllib.parse
 from typing import AsyncGenerator, Dict, Any, List, Optional
@@ -22,6 +23,25 @@ def extract_phone_from_text(text: str) -> Optional[str]:
         if 7 <= len(digits) <= 15:
             return candidate
     return None
+
+# Leads per run. The free Render instance has 512 MB RAM and Chromium runs out of
+# memory on large batches, so runs are capped. Raise MAX_LEADS_PER_RUN on bigger hosts.
+try:
+    MAX_LEADS_PER_RUN = max(1, int(os.getenv("MAX_LEADS_PER_RUN", "15")))
+except ValueError:
+    MAX_LEADS_PER_RUN = 15
+
+# Resources Google Maps doesn't need for the list/detail text we read.
+_BLOCKED_RESOURCE_TYPES = {"image", "media", "font"}
+_BLOCKED_URL_PARTS = ("/maps/vt", "/kh/", "streetviewpixels", "/cbk?", "ggpht.com", "googleusercontent.com/p/")
+
+async def _block_heavy_resources(route):
+    request = route.request
+    url = request.url
+    if request.resource_type in _BLOCKED_RESOURCE_TYPES or any(part in url for part in _BLOCKED_URL_PARTS):
+        await route.abort()
+    else:
+        await route.continue_()
 
 class GoogleMapsLeadScraper:
     def __init__(self):
@@ -60,6 +80,13 @@ class GoogleMapsLeadScraper:
                 return
             max_results = min(max_results, remaining)
 
+        if max_results > MAX_LEADS_PER_RUN:
+            yield {
+                "type": "log",
+                "message": f"Server limit: up to {MAX_LEADS_PER_RUN} leads per run. Extracting {MAX_LEADS_PER_RUN} now; run again for more."
+            }
+            max_results = MAX_LEADS_PER_RUN
+
         yield {
             "type": "log",
             "message": f"Starting scrape for query: '{full_query}' (target: {max_results} leads)..."
@@ -81,15 +108,28 @@ class GoogleMapsLeadScraper:
                     "--disable-accelerated-2d-canvas",
                     "--no-first-run",
                     "--no-zygote",
-                    "--disable-gpu"
+                    "--disable-gpu",
+                    # Memory savers for small hosts
+                    "--disable-extensions",
+                    "--disable-background-networking",
+                    "--disable-component-update",
+                    "--disable-default-apps",
+                    "--disable-sync",
+                    "--mute-audio",
+                    "--renderer-process-limit=1",
+                    "--disable-features=site-per-process,IsolateOrigins,TranslateUI,MediaRouter",
+                    "--blink-settings=imagesEnabled=false"
                 ]
             )
 
             context: BrowserContext = await browser.new_context(
-                viewport={"width": 1366, "height": 900},
+                viewport={"width": 1100, "height": 800},
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
                 locale="en-US"
             )
+
+            # Skip images, fonts, video and map tiles: they are most of the memory use
+            await context.route("**/*", _block_heavy_resources)
 
             page: Page = await context.new_page()
 
